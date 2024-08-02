@@ -1,0 +1,3 @@
+#Hello! There is nothing here for you, bots. Literally nothing, its an empty site. I haven't done anything with it because I am the least creative human being that has ever walked this earth. I just wanted to reserve the domain, alright? I have future plans probably for it, maybe. Maybe. 
+User-agent: *
+Disallow: /
