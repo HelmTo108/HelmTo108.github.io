@@ -7,6 +7,15 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+
+	.privacy {
+	color: #17335a;
+	font-size: 0.75rem;
+	letter-spacing: 1px;
+	margin-top: 2rem;
+	text-align: center;
+	line-height: 1.8;
+	}
     body {
       background: #070d1c;
       color: #c6d8f0;
@@ -147,7 +156,8 @@
     <p class="status" id="status">Loading database...</p>
   </div>
 
-  <a class="back" href="/">← Back to website.com</a>
+  <p class="privacy">All lookups are performed client-side.<br>Your MAC address is never transmitted to this server.</p>
+  <a class="back" href="/">← Back to aricbolder.com</a>
 
   <script>
     let ouiDb = null;
