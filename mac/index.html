@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAC Lookup — website.com</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #070d1c;
+      color: #c6d8f0;
+      font-family: 'Consolas', 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 3rem;
+      color: #00c9a7;
+      letter-spacing: -1px;
+      margin-bottom: 0.2rem;
+    }
+
+    h1 span {
+      color: #c6d8f0;
+      font-size: 1.4rem;
+      vertical-align: middle;
+      margin-left: 0.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      border: 1.5px solid #f59e0b;
+      color: #f59e0b;
+      font-size: 1rem;
+      padding: 1px 8px;
+      border-radius: 4px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    .subtitle {
+      color: #1b3860;
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      margin-bottom: 2.5rem;
+    }
+
+    .card {
+      background: #0a1628;
+      border: 1px solid #17335a;
+      border-radius: 8px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      color: #c6d8f0;
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.6rem 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #00c9a7;
+    }
+
+    button {
+      background: #00c9a7;
+      border: none;
+      border-radius: 5px;
+      color: #070d1c;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: bold;
+      padding: 0.6rem 1.4rem;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #00a88b; }
+    button:disabled { background: #0d3d30; color: #1b5e4a; cursor: not-allowed; }
+
+    pre {
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      color: #00c9a7;
+      font-family: inherit;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      min-height: 120px;
+      overflow-x: auto;
+      padding: 1rem;
+      white-space: pre;
+    }
+
+    .status {
+      color: #1b3860;
+      font-size: 0.75rem;
+      margin-top: 1rem;
+      text-align: right;
+    }
+
+    .status.ready { color: #00c9a7; }
+    .status.error { color: #f59e0b; }
+
+    a.back {
+      color: #17335a;
+      font-size: 0.75rem;
+      margin-top: 2rem;
+      text-decoration: none;
+    }
+    a.back:hover { color: #00c9a7; }
+  </style>
+</head>
+<body>
+
+  <h1>MAC <span>SEARCH <span class="badge">9000</span></span></h1>
+  <p class="subtitle">OUI VENDOR LOOKUP</p>
+
+  <div class="card">
+    <div class="input-row">
+      <input type="text" id="macInput" placeholder="e.g. 4C:8D:79:AA:BB:CC" maxlength="17"
+             onkeydown="if(event.key==='Enter') lookup()">
+      <button id="lookupBtn" onclick="lookup()" disabled>Check</button>
+    </div>
+    <pre id="output">// Enter a MAC address above and press Check.</pre>
+    <p class="status" id="status">Loading database...</p>
+  </div>
+
+  <a class="back" href="/">← Back to website.com</a>
+
+  <script>
+    let ouiDb = null;
+
+    // Load the OUI database on page load
+    fetch('/data/oui.json')
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to load database');
+        return r.json();
+      })
+      .then(data => {
+        ouiDb = data;
+        const count = Object.keys(data).length.toLocaleString();
+        document.getElementById('status').textContent = `Database ready — ${count} vendors loaded`;
+        document.getElementById('status').className = 'status ready';
+        document.getElementById('lookupBtn').disabled = false;
+      })
+      .catch(err => {
+        document.getElementById('status').textContent = `Error: ${err.message}`;
+        document.getElementById('status').className = 'status error';
+      });
+
+    function lookup() {
+      const raw = document.getElementById('macInput').value.trim();
+      const out = document.getElementById('output');
+
+      if (!raw) { out.textContent = '// Please enter a MAC address.'; return; }
+      if (!ouiDb) { out.textContent = '// Database not loaded yet, please wait.'; return; }
+
+      const clean = raw.toUpperCase().replace(/[:\-\.]/g, '');
+
+      if (clean.length < 6) {
+        out.textContent = '// Invalid — enter at least 6 hex characters.';
+        return;
+      }
+
+      if (!/^[0-9A-F]+$/.test(clean)) {
+        out.textContent = '// Invalid — MAC address contains non-hex characters.';
+        return;
+      }
+
+      let vendor = null;
+      for (const len of [9, 7, 6]) {
+        if (clean.length >= len) {
+          const oui = clean.substring(0, len);
+          if (ouiDb[oui]) { vendor = ouiDb[oui]; break; }
+        }
+      }
+
+      const oui = clean.substring(0, 6);
+      const pad = 28;
+
+      if (vendor) {
+        const w = Math.max(vendor.length, raw.length) + 20;
+        const bar = '═'.repeat(w);
+        out.textContent =
+          `╔${bar}╗\n` +
+          `║  MAC LOOKUP RESULT${' '.repeat(w - 19)}║\n` +
+          `╠${bar}╣\n` +
+          `║  MAC Address : ${raw.padEnd(w - 16)}║\n` +
+          `║  OUI Prefix  : ${oui.padEnd(w - 16)}║\n` +
+          `║  Vendor      : ${vendor.padEnd(w - 16)}║\n` +
+          `╚${bar}╝`;
+      } else {
+        const w = Math.max(raw.length, 28) + 20;
+        const bar = '═'.repeat(w);
+        out.textContent =
+          `╔${bar}╗\n` +
+          `║  MAC LOOKUP RESULT${' '.repeat(w - 19)}║\n` +
+          `╠${bar}╣\n` +
+          `║  MAC Address : ${raw.padEnd(w - 16)}║\n` +
+          `║  OUI Prefix  : ${oui.padEnd(w - 16)}║\n` +
+          `║  Vendor      : ${'NOT FOUND'.padEnd(w - 16)}║\n` +
+          `╚${bar}╝`;
+      }
+    }
+  </script>
+
+</body>
+</html>
+```
+
+## Step 4 — Push to GitHub
+```
+git add mac/ data/oui.json
+git commit -m "Add MAC lookup page"
+git push
