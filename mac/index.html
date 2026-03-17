@@ -153,7 +153,7 @@
     let ouiDb = null;
 
     // Load the OUI database on page load
-    fetch('/data/oui.json')
+    fetch('/mac/data/oui.json')
       .then(r => {
         if (!r.ok) throw new Error('Failed to load database');
         return r.json();
