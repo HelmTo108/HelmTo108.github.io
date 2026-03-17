@@ -232,3 +232,41 @@
       const ipv6 = /^[0-9a-fA-F:]+$/;
       if (!ipv4.test(raw) && !ipv6.test(raw)) {
         document.getElementById('output').textContent = '// Invalid IP address format.';
+        return;
+      }
+
+      fetchIp(raw);
+    }
+
+    function lookupMyIp() {
+      fetchIp('');
+    }
+
+    function fetchIp(ip) {
+      const url = ip ? `https://ipapi.co/${ip}/json/` : `https://ipapi.co/json/`;
+      setStatus('Looking up...', 'loading');
+      document.getElementById('output').textContent = '// Fetching data...';
+
+      fetch(url)
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then(data => {
+          if (data.error) {
+            document.getElementById('output').textContent = `// Error: ${data.reason || 'Unknown error'}`;
+            setStatus('Lookup failed', 'error');
+            return;
+          }
+          document.getElementById('output').textContent = formatResult(data);
+          setStatus('Lookup complete', 'ready');
+        })
+        .catch(err => {
+          document.getElementById('output').textContent = `// Request failed: ${err.message}`;
+          setStatus('Error', 'error');
+        });
+    }
+  </script>
+
+</body>
+</html>
