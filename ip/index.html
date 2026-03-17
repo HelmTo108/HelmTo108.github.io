@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IP Lookup — aricbolder.com</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #070d1c;
+      color: #c6d8f0;
+      font-family: 'Consolas', 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 3rem;
+      color: #00c9a7;
+      letter-spacing: -1px;
+      margin-bottom: 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    h1 span {
+      color: #c6d8f0;
+      font-size: 1.4rem;
+    }
+
+    .badge {
+      display: inline-block;
+      border: 1.5px solid #f59e0b;
+      color: #f59e0b;
+      font-size: 1rem;
+      padding: 1px 8px;
+      border-radius: 4px;
+    }
+
+    .subtitle {
+      color: #1b3860;
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      margin-bottom: 2.5rem;
+    }
+
+    .card {
+      background: #0a1628;
+      border: 1px solid #17335a;
+      border-radius: 8px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      color: #c6d8f0;
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.6rem 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus { border-color: #00c9a7; }
+
+    .button-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    button {
+      background: #00c9a7;
+      border: none;
+      border-radius: 5px;
+      color: #070d1c;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: bold;
+      padding: 0.6rem 1.4rem;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #00a88b; }
+    button:disabled { background: #0d3d30; color: #1b5e4a; cursor: not-allowed; }
+
+    button.secondary {
+      background: #0d1830;
+      border: 1px solid #17335a;
+      color: #c6d8f0;
+    }
+
+    button.secondary:hover { background: #17335a; }
+
+    pre {
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      color: #00c9a7;
+      font-family: inherit;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      min-height: 120px;
+      overflow-x: auto;
+      padding: 1rem;
+      white-space: pre;
+    }
+
+    .status {
+      color: #1b3860;
+      font-size: 0.75rem;
+      margin-top: 1rem;
+      text-align: right;
+    }
+
+    .status.ready  { color: #00c9a7; }
+    .status.error  { color: #f59e0b; }
+    .status.loading { color: #c6d8f0; }
+
+    .privacy {
+      color: #17335a;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      margin-top: 2rem;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    a.back {
+      color: #17335a;
+      font-size: 0.75rem;
+      margin-top: 0.75rem;
+      text-decoration: none;
+    }
+
+    a.back:hover { color: #00c9a7; }
+  </style>
+</head>
+<body>
+
+  <h1>IP<span>LOOKUP <span class="badge">9000</span></span></h1>
+  <p class="subtitle">WHOIS / OWNERSHIP LOOKUP</p>
+
+  <div class="card">
+    <div class="input-row">
+      <input type="text" id="ipInput" placeholder="e.g. 8.8.8.8 or 2606:4700::" maxlength="45"
+             onkeydown="if(event.key==='Enter') lookup()">
+    </div>
+    <div class="button-row">
+      <button onclick="lookup()">Look Up IP</button>
+      <button class="secondary" onclick="lookupMyIp()">What's My IP?</button>
+    </div>
+    <pre id="output">// Enter an IP address above, or click "What's My IP?"</pre>
+    <p class="status" id="status">Ready</p>
+  </div>
+
+  <p class="privacy">Lookups are made directly from your browser to ipapi.co.<br>
+  This server does not see or log the IP addresses you query.</p>
+  <a class="back" href="/">← Back to aricbolder.com</a>
+
+  <script>
+    function setStatus(msg, cls) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status ' + (cls || '');
+    }
+
+    function formatResult(data) {
+      const w = Math.max(
+        (data.org || '').length,
+        (data.city || '').length + (data.region || '').length + 3,
+        30
+      ) + 20;
+      const bar = '═'.repeat(w);
+
+      const city    = [data.city, data.region].filter(Boolean).join(', ') || 'N/A';
+      const country = [data.country_name, data.country].filter(Boolean).join(' — ') || 'N/A';
+      const org     = data.org     || data.asn || 'N/A';
+      const isp     = data.isp !== data.org ? (data.isp || 'N/A') : null;
+      const ip      = data.ip      || 'N/A';
+      const type    = data.version || 'N/A';
+
+      let lines =
+        `╔${bar}╗\r\n` +
+        `║  IP LOOKUP RESULT${' '.repeat(w - 18)}║\r\n` +
+        `╠${bar}╣\r\n` +
+        `║  IP Address  : ${ip.padEnd(w - 16)}║\r\n` +
+        `║  Version     : ${type.padEnd(w - 16)}║\r\n` +
+        `╠${bar}╣\r\n` +
+        `║  Owner / Org : ${org.padEnd(w - 16)}║\r\n`;
+
+      if (isp) {
+        lines += `║  ISP         : ${isp.padEnd(w - 16)}║\r\n`;
+      }
+
+      lines +=
+        `╠${bar}╣\r\n` +
+        `║  Country     : ${country.padEnd(w - 16)}║\r\n` +
+        `║  Region/City : ${city.padEnd(w - 16)}║\r\n` +
+        `╚${bar}╝`;
+
+      return lines;
+    }
+
+    function lookup() {
+      const raw = document.getElementById('ipInput').value.trim();
+      if (!raw) {
+        document.getElementById('output').textContent = '// Please enter an IP address.';
+        return;
+      }
+
+      // Basic validation
+      const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/;
+      const ipv6 = /^[0-9a-fA-F:]+$/;
+      if (!ipv4.test(raw) && !ipv6.test(raw)) {
+        document.getElementById('output').textContent = '// Invalid IP address format.';
