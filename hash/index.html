@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hash Tool — aricbolder.com</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #070d1c;
+      color: #c6d8f0;
+      font-family: 'Consolas', 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 3rem;
+      color: #00c9a7;
+      letter-spacing: -1px;
+      margin-bottom: 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    h1 span { color: #c6d8f0; font-size: 1.4rem; }
+
+    .badge {
+      display: inline-block;
+      border: 1.5px solid #f59e0b;
+      color: #f59e0b;
+      font-size: 1rem;
+      padding: 1px 8px;
+      border-radius: 4px;
+    }
+
+    .subtitle {
+      color: #1b3860;
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      margin-bottom: 2.5rem;
+    }
+
+    .card {
+      background: #0a1628;
+      border: 1px solid #17335a;
+      border-radius: 8px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 660px;
+    }
+
+    /* ── mode toggle ── */
+    .mode-toggle {
+      display: flex;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .mode-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: #1b3860;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8rem;
+      letter-spacing: 2px;
+      padding: 0.6rem;
+      text-transform: uppercase;
+      transition: background 0.2s, color 0.2s;
+    }
+    .mode-btn:first-child { border-right: 1px solid #17335a; }
+    .mode-btn.active {
+      background: #0d1830;
+      color: #00c9a7;
+    }
+    .mode-btn:hover:not(.active) { color: #c6d8f0; }
+
+    .sec-label {
+      color: #1b3860;
+      font-size: 0.7rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+    }
+
+    textarea, input[type="text"], input[type="password"] {
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      color: #c6d8f0;
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.6rem 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    textarea:focus, input[type="text"]:focus, input[type="password"]:focus { border-color: #00c9a7; }
+
+    /* ── algorithm pills ── */
+    .algo-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 1rem;
+    }
+    .algo-pill {
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 4px;
+      color: #1b3860;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      padding: 4px 12px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .algo-pill.selected {
+      border-color: #00c9a7;
+      color: #00c9a7;
+    }
+    .algo-pill:hover:not(.selected) { color: #c6d8f0; }
+
+    /* ── salt section ── */
+    .salt-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 12px; height: 12px;
+      background: #17335a;
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-track { border-color: #00c9a7; }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(16px); background: #00c9a7; }
+    .toggle-label { font-size: 0.82rem; color: #c6d8f0; }
+
+    .salt-options {
+      display: none;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .salt-options.visible { display: flex; }
+
+    .radio-row {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      color: #c6d8f0;
+      cursor: pointer;
+    }
+    input[type="radio"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border: 1px solid #17335a;
+      border-radius: 50%;
+      background: #0d1830;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.2s;
+      flex-shrink: 0;
+    }
+    input[type="radio"]:checked { border-color: #00c9a7; background: #00c9a7; }
+    input[type="radio"]:checked::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #070d1c;
+    }
+
+    /* ── buttons ── */
+    .button-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    button.primary {
+      background: #00c9a7;
+      border: none;
+      border-radius: 5px;
+      color: #070d1c;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: bold;
+      padding: 0.6rem 1.4rem;
+      transition: background 0.2s;
+    }
+    button.primary:hover { background: #00a88b; }
+    button.secondary {
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      color: #c6d8f0;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.6rem 1.4rem;
+      transition: background 0.2s;
+    }
+    button.secondary:hover { background: #17335a; }
+    button.copy-btn {
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      color: #1b3860;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      padding: 3px 10px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    button.copy-btn:hover { border-color: #00c9a7; color: #00c9a7; }
+
+    .err-msg {
+      color: #e24b4a;
+      font-size: 0.8rem;
+      min-height: 1.1rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #17335a;
+      margin: 1.25rem 0;
+    }
+
+    /* ── output ── */
+    .output-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4rem;
+    }
+    pre {
+      background: #0d1830;
+      border: 1px solid #17335a;
+      border-radius: 5px;
+      color: #00c9a7;
+      font-family: inherit;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      padding: 1rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .status {
+      color: #1b3860;
+      font-size: 0.75rem;
+      margin-top: 0.75rem;
+      text-align: right;
+    }
+    .status.ready { color: #f59e0b; }
+    .status.error { color: #e24b4a; }
+
+    .privacy {
+      color: #17335a;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      margin-top: 2rem;
+      text-align: center;
+      line-height: 1.8;
+    }
+    a.back {
+      color: #17335a;
+      font-size: 0.75rem;
+      margin-top: 0.75rem;
+      text-decoration: none;
+    }
+    a.back:hover { color: #00c9a7; }
+  </style>
+</head>
+<body>
+
+  <h1>HASH<span>TOOL <span class="badge">v2</span></span></h1>
+  <p class="subtitle">GENERATE &amp; IDENTIFY HASHES</p>
+
+  <div class="card">
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btnGenerate" onclick="setMode('generate')">Generate</button>
+      <button class="mode-btn" id="btnIdentify" onclick="setMode('identify')">Identify</button>
+    </div>
+
+    <!-- ══ GENERATE PANEL ══ -->
+    <div id="panelGenerate">
+
+      <p class="sec-label">Input text</p>
+      <textarea id="genInput" placeholder="Enter text to hash..." style="margin-bottom:1rem;"></textarea>
+
+      <p class="sec-label">Algorithm</p>
+      <div class="algo-row" id="algoRow">
+        <button class="algo-pill selected" data-algo="SHA-256">SHA-256</button>
+        <button class="algo-pill" data-algo="SHA-512">SHA-512</button>
+        <button class="algo-pill" data-algo="SHA-384">SHA-384</button>
+        <button class="algo-pill" data-algo="SHA-1">SHA-1</button>
+        <button class="algo-pill" data-algo="MD5">MD5</button>
+      </div>
+
+      <div class="salt-toggle-row">
+        <label class="toggle-switch">
+          <input type="checkbox" id="saltToggle" onchange="toggleSalt()" />
+          <span class="toggle-track"></span>
+        </label>
+        <span class="toggle-label">Add salt</span>
+      </div>
+
+      <div class="salt-options" id="saltOptions">
+        <input type="text" id="saltValue" placeholder="Salt value..." />
+        <div class="radio-row">
+          <label class="radio-option"><input type="radio" name="saltPos" value="prepend" checked /> Prepend salt</label>
+          <label class="radio-option"><input type="radio" name="saltPos" value="append" /> Append salt</label>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="primary" onclick="generateHash()">Generate</button>
+        <button class="secondary" onclick="clearGenerate()">Clear</button>
+      </div>
+      <div class="err-msg" id="genErr"></div>
+
+      <div id="genResults" style="display:none;">
+        <hr class="divider" />
+        <div class="output-header">
+          <p class="sec-label" style="margin:0;">Result</p>
+          <button class="copy-btn" onclick="copyOutput('genOutput')">Copy</button>
+        </div>
+        <pre id="genOutput"></pre>
+        <p class="status ready" id="genStatus"></p>
+      </div>
+
+    </div>
+
+    <!-- ══ IDENTIFY PANEL ══ -->
+    <div id="panelIdentify" style="display:none;">
+
+      <p class="sec-label">Hash to identify</p>
+      <textarea id="idInput" placeholder="Paste a hash here..." style="margin-bottom:1rem;" oninput="autoIdentify()"></textarea>
+
+      <div class="err-msg" id="idErr"></div>
+
+      <div id="idResults" style="display:none;">
+        <hr class="divider" />
+        <div class="output-header">
+          <p class="sec-label" style="margin:0;">Analysis</p>
+          <button class="copy-btn" onclick="copyOutput('idOutput')">Copy</button>
+        </div>
+        <pre id="idOutput"></pre>
+        <p class="status ready" id="idStatus"></p>
+      </div>
+
+    </div>
+
+  </div>
+
+  <p class="privacy">All hashing is performed locally in your browser.<br>
+  No input text or hashes are transmitted to any server.</p>
+  <a class="back" href="/">← Back to aricbolder.com</a>
+
+  <script>
+  /* ─────────────────────────── MD5 (pure JS) ─────────────────────────── */
+  function md5(str) {
+    function safeAdd(x,y){const lsw=(x&65535)+(y&65535);return((x>>16)+(y>>16)+(lsw>>16)<<16)|(lsw&65535);}
+    function bitRotateLeft(num,cnt){return(num<<cnt)|(num>>>32-cnt);}
+    function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b);}
+    function md5ff(a,b,c,d,x,s,t){return md5cmn(b&c|~b&d,a,b,x,s,t);}
+    function md5gg(a,b,c,d,x,s,t){return md5cmn(b&d|c&~d,a,b,x,s,t);}
+    function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
+    function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|~d),a,b,x,s,t);}
+    const utf8 = unescape(encodeURIComponent(str));
+    const bytes = [];
+    for(let i=0;i<utf8.length;i++) bytes.push(utf8.charCodeAt(i));
+    bytes.push(0x80);
+    while(bytes.length%64!==56) bytes.push(0);
+    const bitLen = utf8.length*8;
+    bytes.push(bitLen&0xff,(bitLen>>8)&0xff,(bitLen>>16)&0xff,(bitLen>>24)&0xff,0,0,0,0);
+    let a=1732584193,b=-271733879,c=-1732584194,d=271733878;
+    for(let i=0;i<bytes.length;i+=64){
+      const M=[];
+      for(let j=0;j<16;j++) M[j]=bytes[i+j*4]|(bytes[i+j*4+1]<<8)|(bytes[i+j*4+2]<<16)|(bytes[i+j*4+3]<<24);
+      let aa=a,bb=b,cc=c,dd=d;
+      a=md5ff(a,b,c,d,M[0],7,-680876936);d=md5ff(d,a,b,c,M[1],12,-389564586);c=md5ff(c,d,a,b,M[2],17,606105819);b=md5ff(b,c,d,a,M[3],22,-1044525330);
+      a=md5ff(a,b,c,d,M[4],7,-176418897);d=md5ff(d,a,b,c,M[5],12,1200080426);c=md5ff(c,d,a,b,M[6],17,-1473231341);b=md5ff(b,c,d,a,M[7],22,-45705983);
+      a=md5ff(a,b,c,d,M[8],7,1770035416);d=md5ff(d,a,b,c,M[9],12,-1958414417);c=md5ff(c,d,a,b,M[10],17,-42063);b=md5ff(b,c,d,a,M[11],22,-1990404162);
+      a=md5ff(a,b,c,d,M[12],7,1804603682);d=md5ff(d,a,b,c,M[13],12,-40341101);c=md5ff(c,d,a,b,M[14],17,-1502002290);b=md5ff(b,c,d,a,M[15],22,1236535329);
+      a=md5gg(a,b,c,d,M[1],5,-165796510);d=md5gg(d,a,b,c,M[6],9,-1069501632);c=md5gg(c,d,a,b,M[11],14,643717713);b=md5gg(b,c,d,a,M[0],20,-373897302);
+      a=md5gg(a,b,c,d,M[5],5,-701558691);d=md5gg(d,a,b,c,M[10],9,38016083);c=md5gg(c,d,a,b,M[15],14,-660478335);b=md5gg(b,c,d,a,M[4],20,-405537848);
+      a=md5gg(a,b,c,d,M[9],5,568446438);d=md5gg(d,a,b,c,M[14],9,-1019803690);c=md5gg(c,d,a,b,M[3],14,-187363961);b=md5gg(b,c,d,a,M[8],20,1163531501);
+      a=md5gg(a,b,c,d,M[13],5,-1444681467);d=md5gg(d,a,b,c,M[2],9,-51403784);c=md5gg(c,d,a,b,M[7],14,1735328473);b=md5gg(b,c,d,a,M[12],20,-1926607734);
+      a=md5hh(a,b,c,d,M[5],4,-378558);d=md5hh(d,a,b,c,M[8],11,-2022574463);c=md5hh(c,d,a,b,M[11],16,1839030562);b=md5hh(b,c,d,a,M[14],23,-35309556);
+      a=md5hh(a,b,c,d,M[1],4,-1530992060);d=md5hh(d,a,b,c,M[4],11,1272893353);c=md5hh(c,d,a,b,M[7],16,-155497632);b=md5hh(b,c,d,a,M[10],23,-1094730640);
+      a=md5hh(a,b,c,d,M[13],4,681279174);d=md5hh(d,a,b,c,M[0],11,-358537222);c=md5hh(c,d,a,b,M[3],16,-722521979);b=md5hh(b,c,d,a,M[6],23,76029189);
+      a=md5hh(a,b,c,d,M[9],4,-640364487);d=md5hh(d,a,b,c,M[12],11,-421815835);c=md5hh(c,d,a,b,M[15],16,530742520);b=md5hh(b,c,d,a,M[2],23,-995338651);
+      a=md5ii(a,b,c,d,M[0],6,-198630844);d=md5ii(d,a,b,c,M[7],10,1126891415);c=md5ii(c,d,a,b,M[14],15,-1416354905);b=md5ii(b,c,d,a,M[5],21,-57434055);
+      a=md5ii(a,b,c,d,M[12],6,1700485571);d=md5ii(d,a,b,c,M[3],10,-1894986606);c=md5ii(c,d,a,b,M[10],15,-1051523);b=md5ii(b,c,d,a,M[1],21,-2054922799);
+      a=md5ii(a,b,c,d,M[8],6,1873313359);d=md5ii(d,a,b,c,M[15],10,-30611744);c=md5ii(c,d,a,b,M[6],15,-1560198380);b=md5ii(b,c,d,a,M[13],21,1309151649);
+      a=md5ii(a,b,c,d,M[4],6,-145523070);d=md5ii(d,a,b,c,M[11],10,-1120210379);c=md5ii(c,d,a,b,M[2],15,718787259);b=md5ii(b,c,d,a,M[9],21,-343485551);
+      a=safeAdd(a,aa);b=safeAdd(b,bb);c=safeAdd(c,cc);d=safeAdd(d,dd);
+    }
+    function le(n){return[(n)&255,(n>>8)&255,(n>>16)&255,(n>>24)&255];}
+    return [...le(a),...le(b),...le(c),...le(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  /* ─────────────────────────── SHA via Web Crypto ─────────────────────── */
+  async function sha(algo, str) {
+    const enc = new TextEncoder();
+    const buf = await crypto.subtle.digest(algo, enc.encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  /* ─────────────────────────── MODE ─────────────────────────── */
+  function setMode(mode) {
+    document.getElementById('panelGenerate').style.display = mode==='generate' ? 'block' : 'none';
+    document.getElementById('panelIdentify').style.display = mode==='identify' ? 'block' : 'none';
+    document.getElementById('btnGenerate').className = 'mode-btn' + (mode==='generate' ? ' active' : '');
+    document.getElementById('btnIdentify').className = 'mode-btn' + (mode==='identify' ? ' active' : '');
+  }
+
+  /* ─────────────────────────── ALGO PILLS ─────────────────────────── */
+  let selectedAlgo = 'SHA-256';
+  document.getElementById('algoRow').addEventListener('click', e => {
+    const pill = e.target.closest('.algo-pill');
+    if (!pill) return;
+    document.querySelectorAll('.algo-pill').forEach(p => p.classList.remove('selected'));
+    pill.classList.add('selected');
+    selectedAlgo = pill.dataset.algo;
+  });
+
+  /* ─────────────────────────── SALT TOGGLE ─────────────────────────── */
+  function toggleSalt() {
+    const on = document.getElementById('saltToggle').checked;
+    document.getElementById('saltOptions').className = 'salt-options' + (on ? ' visible' : '');
+  }
+
+  /* ─────────────────────────── GENERATE ─────────────────────────── */
+  async function generateHash() {
+    const errEl = document.getElementById('genErr');
+    errEl.textContent = '';
+    const raw = document.getElementById('genInput').value;
+    if (!raw.trim()) { errEl.textContent = '// No input text provided.'; return; }
+
+    const saltOn  = document.getElementById('saltToggle').checked;
+    const saltVal = document.getElementById('saltValue').value;
+    const saltPos = document.querySelector('input[name="saltPos"]:checked').value;
+
+    let input = raw;
+    if (saltOn) {
+      if (!saltVal) { errEl.textContent = '// Salt is enabled but no salt value was entered.'; return; }
+      input = saltPos === 'prepend' ? saltVal + raw : raw + saltVal;
+    }
+
+    let hash;
+    try {
+      if (selectedAlgo === 'MD5') {
+        hash = md5(input);
+      } else {
+        hash = await sha(selectedAlgo, input);
+      }
+    } catch(e) {
+      errEl.textContent = `// Error: ${e.message}`;
+      return;
+    }
+
+    const w = 54;
+    const hr = '═'.repeat(w);
+    const algoLabel = selectedAlgo;
+    const bits = {MD5:128,'SHA-1':160,'SHA-256':256,'SHA-384':384,'SHA-512':512}[selectedAlgo] || '?';
+    const security = {
+      MD5: 'Broken — collision attacks known. Do not use for security.',
+      'SHA-1': 'Deprecated — theoretical collision attacks exist.',
+      'SHA-256': 'Secure — widely used, NIST approved.',
+      'SHA-384': 'Secure — truncated SHA-512, NIST approved.',
+      'SHA-512': 'Secure — strongest of SHA-2 family.'
+    }[selectedAlgo];
+
+    let out =
+      `╔${hr}╗\n`+
+      `║  HASH RESULT${' '.repeat(w-13)}║\n`+
+      `╠${hr}╣\n`+
+      `║  Algorithm : ${algoLabel.padEnd(w-14)}║\n`+
+      `║  Bits      : ${String(bits).padEnd(w-14)}║\n`+
+      `║  Hex Length: ${String(hash.length).padEnd(w-14)}║\n`;
+
+    if (saltOn) {
+      out +=
+        `║  Salt      : ${saltVal.substring(0,w-14).padEnd(w-14)}║\n`+
+        `║  Position  : ${saltPos.padEnd(w-14)}║\n`;
+    }
+
+    out +=
+      `╠${hr}╣\n`+
+      `║  Hash:${' '.repeat(w-6)}║\n`+
+      `║  ${hash.substring(0,w-2).padEnd(w-2)}║\n`;
+
+    if (hash.length > w-2) {
+      out += `║  ${hash.substring(w-2).padEnd(w-2)}║\n`;
+    }
+
+    out +=
+      `╠${hr}╣\n`+
+      `║  Security Note:${' '.repeat(w-16)}║\n`;
+
+    // word-wrap the security note
+    const words = security.split(' ');
+    let line = '║  ';
+    for (const word of words) {
+      if ((line + word).length > w+1) {
+        out += line.padEnd(w+2) + '║\n';
+        line = '║  ' + word + ' ';
+      } else {
+        line += word + ' ';
+      }
+    }
+    if (line.trim() !== '║') out += line.trimEnd().padEnd(w+2) + '║\n';
+
+    out += `╚${hr}╝`;
+
+    document.getElementById('genOutput').textContent = out;
+    document.getElementById('genStatus').textContent = `${algoLabel} hash generated`;
+    document.getElementById('genResults').style.display = 'block';
+  }
+
+  function clearGenerate() {
+    document.getElementById('genInput').value = '';
+    document.getElementById('saltValue').value = '';
+    document.getElementById('saltToggle').checked = false;
+    toggleSalt();
+    document.getElementById('genResults').style.display = 'none';
+    document.getElementById('genErr').textContent = '';
+  }
+
+  /* ─────────────────────────── IDENTIFY ─────────────────────────── */
+  const HASH_DB = [
+    // ── prefix-based patterns first ──
+    { name:'bcrypt',       version:'2b', family:'bcrypt',    re:/^\$2b\$\d{2}\$.{53}$/, bits:184, notes:'Adaptive password hash. Work factor encoded in prefix. Includes built-in salt.' },
+    { name:'bcrypt',       version:'2a', family:'bcrypt',    re:/^\$2a\$\d{2}\$.{53}$/, bits:184, notes:'Older bcrypt variant. Functionally equivalent to $2b$ on most systems.' },
+    { name:'bcrypt',       version:'2y', family:'bcrypt',    re:/^\$2y\$\d{2}\$.{53}$/, bits:184, notes:'PHP bcrypt variant. Identical to $2b$ in practice.' },
+    { name:'MD5-crypt',    version:'$1$',family:'crypt',     re:/^\$1\$.{1,8}\$.{22}$/, bits:128, notes:'Unix crypt MD5. Used in older Linux /etc/shadow. Deprecated.' },
+    { name:'SHA-256-crypt',version:'$5$', family:'crypt',    re:/^\$5\$.*\$.{43}$/,     bits:256, notes:'Unix crypt SHA-256. Used in modern Linux /etc/shadow.' },
+    { name:'SHA-512-crypt',version:'$6$', family:'crypt',    re:/^\$6\$.*\$.{86}$/,     bits:512, notes:'Unix crypt SHA-512. Preferred for modern Linux password storage.' },
+    { name:'scrypt',       version:'$7$', family:'scrypt',   re:/^\$7\$/,               bits:null,notes:'scrypt KDF. Memory-hard, resistant to GPU/ASIC attacks.' },
+    { name:'Argon2i',      version:null,  family:'Argon2',   re:/^\$argon2i\$/,         bits:null,notes:'Memory-hard password hash. Winner of Password Hashing Competition 2015.' },
+    { name:'Argon2id',     version:null,  family:'Argon2',   re:/^\$argon2id\$/,        bits:null,notes:'Hybrid Argon2 variant. Recommended for most new applications.' },
+    { name:'sha512crypt',  version:'apr1',family:'Apache',   re:/^\$apr1\$/,            bits:128, notes:'Apache MD5 variant. Used in .htpasswd files.' },
+    { name:'MySQL 4.x',    version:'4.x', family:'MySQL',    re:/^[0-9a-f]{16}$/i,      bits:64,  notes:'Old MySQL PASSWORD() function. Extremely weak — 64-bit output.' },
+    { name:'MySQL 5.x+',   version:'5+',  family:'MySQL',    re:/^\*[0-9a-fA-F]{40}$/,  bits:160, notes:'MySQL 5+ PASSWORD() — double SHA-1. Not suitable for general use.' },
+    { name:'NTLM',         version:null,  family:'Windows',  re:/^[0-9a-f]{32}$/i,      bits:128, notes:'Windows NTLM / NT Hash. MD4 of UTF-16LE password. Same length as MD5 — context required to distinguish.' },
+    // ── length-based ──
+    { name:'MD5',          version:null,  family:'MD5',      len:32,  charset:'hex', bits:128, notes:'Fast, broken. Vulnerable to collision and preimage attacks. Not suitable for passwords or integrity.' },
+    { name:'SHA-1',        version:null,  family:'SHA',      len:40,  charset:'hex', bits:160, notes:'Deprecated by NIST. Theoretical collision attacks demonstrated by SHAttered (2017).' },
+    { name:'SHA-224',      version:null,  family:'SHA-2',    len:56,  charset:'hex', bits:224, notes:'Truncated SHA-256. Rarely used in practice.' },
+    { name:'SHA-256',      version:null,  family:'SHA-2',    len:64,  charset:'hex', bits:256, notes:'Current standard. Widely used in TLS, certificates, blockchain. NIST approved.' },
+    { name:'SHA-384',      version:null,  family:'SHA-2',    len:96,  charset:'hex', bits:384, notes:'Truncated SHA-512. Used in some TLS cipher suites.' },
+    { name:'SHA-512',      version:null,  family:'SHA-2',    len:128, charset:'hex', bits:512, notes:'Strongest SHA-2 variant. Used in high-security applications.' },
+    { name:'SHA3-224',     version:null,  family:'SHA-3',    len:56,  charset:'hex', bits:224, notes:'Keccak-based. SHA-3 family — structurally different from SHA-2.' },
+    { name:'SHA3-256',     version:null,  family:'SHA-3',    len:64,  charset:'hex', bits:256, notes:'SHA-3 256-bit. Same output length as SHA-256 but different algorithm.' },
+    { name:'SHA3-384',     version:null,  family:'SHA-3',    len:96,  charset:'hex', bits:384, notes:'SHA-3 384-bit.' },
+    { name:'SHA3-512',     version:null,  family:'SHA-3',    len:128, charset:'hex', bits:512, notes:'SHA-3 512-bit.' },
+    { name:'RIPEMD-128',   version:null,  family:'RIPEMD',   len:32,  charset:'hex', bits:128, notes:'European alternative to MD5. Rarely used today.' },
+    { name:'RIPEMD-160',   version:null,  family:'RIPEMD',   len:40,  charset:'hex', bits:160, notes:'Used in Bitcoin address generation alongside SHA-256.' },
+    { name:'RIPEMD-256',   version:null,  family:'RIPEMD',   len:64,  charset:'hex', bits:256, notes:'RIPEMD 256-bit variant.' },
+    { name:'RIPEMD-320',   version:null,  family:'RIPEMD',   len:80,  charset:'hex', bits:320, notes:'RIPEMD 320-bit variant.' },
+    { name:'Whirlpool',    version:null,  family:'Whirlpool',len:128, charset:'hex', bits:512, notes:'ISO/IEC 10118-3 standard hash. Same output size as SHA-512.' },
+    { name:'BLAKE2b-256',  version:null,  family:'BLAKE2',   len:64,  charset:'hex', bits:256, notes:'High-speed cryptographic hash. Faster than SHA-2 on 64-bit platforms.' },
+    { name:'BLAKE2b-512',  version:null,  family:'BLAKE2',   len:128, charset:'hex', bits:512, notes:'BLAKE2 512-bit variant.' },
+    { name:'Tiger-192',    version:null,  family:'Tiger',    len:48,  charset:'hex', bits:192, notes:'Optimised for 64-bit platforms. Common in P2P file-sharing (TTH).' },
+    { name:'Adler-32',     version:null,  family:'Checksum', len:8,   charset:'hex', bits:32,  notes:'Checksum, not a cryptographic hash. Used in zlib.' },
+    { name:'CRC-32',       version:null,  family:'Checksum', len:8,   charset:'hex', bits:32,  notes:'Cyclic redundancy check. Not cryptographic.' },
+  ];
+
+  function securityRating(bits, family) {
+    if (['bcrypt','Argon2','scrypt'].includes(family)) return 'High — designed for password storage';
+    if (!bits) return 'Unknown';
+    if (bits < 128) return 'Critical — insufficient bit length';
+    if (family === 'MD5' || family === 'crypt' && bits === 128) return 'Broken — do not use for security';
+    if (family === 'SHA' && bits === 160) return 'Deprecated — avoid for new applications';
+    if (bits >= 256 && ['SHA-2','SHA-3','BLAKE2'].includes(family)) return 'Secure — currently recommended';
+    if (bits >= 256) return 'Adequate';
+    return 'Use with caution';
+  }
+
+  function autoIdentify() {
+    const raw = document.getElementById('idInput').value.trim();
+    document.getElementById('idErr').textContent = '';
+    if (!raw) { document.getElementById('idResults').style.display = 'none'; return; }
+
+    const isHex = /^[0-9a-fA-F]+$/.test(raw);
+    const len   = raw.length;
+
+    // collect all matches
+    const matches = HASH_DB.filter(h => {
+      if (h.re) return h.re.test(raw);
+      if (h.len) return h.len === len && isHex;
+      return false;
+    });
+
+    const w  = 54;
+    const hr = '═'.repeat(w);
+
+    if (!matches.length) {
+      let out =
+        `╔${hr}╗\n`+
+        `║  HASH ANALYSIS${' '.repeat(w-15)}║\n`+
+        `╠${hr}╣\n`+
+        `║  Length    : ${String(len).padEnd(w-14)}║\n`+
+        `║  Charset   : ${(isHex?'hexadecimal':'non-hex / encoded').padEnd(w-14)}║\n`+
+        `╠${hr}╣\n`+
+        `║  No matching algorithm found.${' '.repeat(w-30)}║\n`+
+        `║  This may be Base64, HMAC, custom, or truncated.${' '.repeat(w-49)}║\n`+
+        `╚${hr}╝`;
+      document.getElementById('idOutput').textContent = out;
+      document.getElementById('idStatus').textContent = 'No match found';
+      document.getElementById('idStatus').className = 'status error';
+      document.getElementById('idResults').style.display = 'block';
+      return;
+    }
+
+    let out =
+      `╔${hr}╗\n`+
+      `║  HASH ANALYSIS${' '.repeat(w-15)}║\n`+
+      `╠${hr}╣\n`+
+      `║  Length    : ${String(len).padEnd(w-14)}║\n`+
+      `║  Charset   : ${(isHex?'hexadecimal':'structured / encoded').padEnd(w-14)}║\n`+
+      `╠${hr}╣\n`;
+
+    if (matches.length > 1) {
+      out += `║  Multiple possible algorithms (${matches.length} candidates):${' '.repeat(Math.max(0,w-44-String(matches.length).length))}║\n`;
+      out += `╠${hr}╣\n`;
+    }
+
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const rating = securityRating(m.bits, m.family);
+      if (matches.length > 1) out += `║  [ Candidate ${i+1} ]${' '.repeat(Math.max(0,w-16))}║\n`;
+      out += `║  Algorithm : ${m.name.padEnd(w-14)}║\n`;
+      if (m.version) out += `║  Version   : ${m.version.padEnd(w-14)}║\n`;
+      out += `║  Family    : ${m.family.padEnd(w-14)}║\n`;
+      if (m.bits) out += `║  Bits      : ${String(m.bits).padEnd(w-14)}║\n`;
+      out += `║  Security  : ${rating.substring(0,w-14).padEnd(w-14)}║\n`;
+      out += `╠${hr}╣\n`;
+      out += `║  Notes:${' '.repeat(w-7)}║\n`;
+      const words = m.notes.split(' ');
+      let line = '║  ';
+      for (const word of words) {
+        if ((line+word).length > w+1) {
+          out += line.padEnd(w+2)+'║\n';
+          line = '║  '+word+' ';
+        } else { line += word+' '; }
+      }
+      if (line.trim()!=='║') out += line.trimEnd().padEnd(w+2)+'║\n';
+      if (i < matches.length-1) out += `╠${hr}╣\n`;
+    }
+
+    out += `╚${hr}╝`;
+
+    document.getElementById('idOutput').textContent = out;
+    document.getElementById('idStatus').textContent =
+      matches.length === 1 ? `Identified: ${matches[0].name}` : `${matches.length} possible algorithms`;
+    document.getElementById('idStatus').className = 'status ready';
+    document.getElementById('idResults').style.display = 'block';
+  }
+
+  /* ─────────────────────────── COPY ─────────────────────────── */
+  function copyOutput(id) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).catch(()=>{});
+  }
+  </script>
+
+</body>
+</html>

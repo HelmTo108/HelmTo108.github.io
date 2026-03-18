@@ -649,7 +649,7 @@
 
       if (errored.length) {
         for (const r of errored)
-          out += `║  !! ${r.name}: ${r.error}${' '.repeat(Math.max(0,w-4-r.name.length-r.error.length-2))}║\n`;
+          out += `║  !! ${r.name}: ${r.error}${' '.repeat(Math.max(0,w-5-r.name.length-r.error.length-2))}║\n`;
         out += `╠${hr}╣\n`;
       }
 
