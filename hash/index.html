@@ -245,17 +245,17 @@
     button.secondary:hover { background: #17335a; }
     button.copy-btn {
       background: #0d1830;
-      border: 1px solid #17335a;
+      border: 1px solid #00c9a7;
       border-radius: 5px;
-      color: #1b3860;
+      color: #00c9a7;
       cursor: pointer;
       font-family: inherit;
       font-size: 0.75rem;
       letter-spacing: 1px;
       padding: 3px 10px;
-      transition: border-color 0.2s, color 0.2s;
+      transition: background 0.2s;
     }
-    button.copy-btn:hover { border-color: #00c9a7; color: #00c9a7; }
+    button.copy-btn:hover { background: #17335a; }
 
     .err-msg {
       color: #e24b4a;
@@ -287,8 +287,8 @@
       line-height: 1.6;
       overflow-x: auto;
       padding: 1rem;
-      white-space: pre-wrap;
-      word-break: break-all;
+      white-space: pre;
+      word-break: normal;
     }
     .status {
       color: #1b3860;
@@ -369,7 +369,7 @@
         <hr class="divider" />
         <div class="output-header">
           <p class="sec-label" style="margin:0;">Result</p>
-          <button class="copy-btn" onclick="copyOutput('genOutput')">Copy</button>
+          <button class="copy-btn" onclick="copyHashValue()">Copy Hash Value</button>
         </div>
         <pre id="genOutput"></pre>
         <p class="status ready" id="genStatus"></p>
@@ -512,11 +512,11 @@
     const algoLabel = selectedAlgo;
     const bits = {MD5:128,'SHA-1':160,'SHA-256':256,'SHA-384':384,'SHA-512':512}[selectedAlgo] || '?';
     const security = {
-      MD5: 'Broken — collision attacks known. Do not use for security.',
-      'SHA-1': 'Deprecated — theoretical collision attacks exist.',
-      'SHA-256': 'Secure — widely used, NIST approved.',
-      'SHA-384': 'Secure — truncated SHA-512, NIST approved.',
-      'SHA-512': 'Secure — strongest of SHA-2 family.'
+      MD5: 'Broken - collision attacks known. Do not use for security.',
+      'SHA-1': 'Deprecated - theoretical collision attacks exist.',
+      'SHA-256': 'Secure - widely used, NIST approved.',
+      'SHA-384': 'Secure - truncated SHA-512, NIST approved.',
+      'SHA-512': 'Secure - strongest of SHA-2 family.'
     }[selectedAlgo];
 
     let out =
@@ -533,35 +533,28 @@
         `║  Position  : ${saltPos.padEnd(w-14)}║\n`;
     }
 
-    out +=
-      `╠${hr}╣\n`+
-      `║  Hash:${' '.repeat(w-6)}║\n`+
-      `║  ${hash.substring(0,w-2).padEnd(w-2)}║\n`;
-
-    if (hash.length > w-2) {
-      out += `║  ${hash.substring(w-2).padEnd(w-2)}║\n`;
+    out += `╠${hr}╣\n`;
+    out += `║  Hash:${' '.repeat(w-7)}║\n`;
+    const chunkSize = w - 6;
+    for (let i = 0; i < hash.length; i += chunkSize) {
+      out += `║    ${hash.substring(i, i + chunkSize).padEnd(w-4)}║\n`;
     }
-
-    out +=
-      `╠${hr}╣\n`+
-      `║  Security Note:${' '.repeat(w-16)}║\n`;
-
-    // word-wrap the security note
-    const words = security.split(' ');
-    let line = '║  ';
-    for (const word of words) {
-      if ((line + word).length > w+1) {
-        out += line.padEnd(w+2) + '║\n';
-        line = '║  ' + word + ' ';
+    out += `╠${hr}╣\n`;
+    const secWords = (`Security  : ` + security).split(' ');
+    let secLine = '║  ';
+    for (const word of secWords) {
+      if (secLine.length + word.length + 2 > w + 1) {
+        out += secLine.padEnd(w + 1) + '║\n';
+        secLine = '║             ' + word + ' ';
       } else {
-        line += word + ' ';
+        secLine += word + ' ';
       }
     }
-    if (line.trim() !== '║') out += line.trimEnd().padEnd(w+2) + '║\n';
-
+    if (secLine.trim() !== '║') out += secLine.trimEnd().padEnd(w + 1) + '║\n';
     out += `╚${hr}╝`;
 
     document.getElementById('genOutput').textContent = out;
+    document.getElementById('genOutput').dataset.hash = hash;
     document.getElementById('genStatus').textContent = `${algoLabel} hash generated`;
     document.getElementById('genResults').style.display = 'block';
   }
@@ -615,12 +608,12 @@
   ];
 
   function securityRating(bits, family) {
-    if (['bcrypt','Argon2','scrypt'].includes(family)) return 'High — designed for password storage';
+    if (['bcrypt','Argon2','scrypt'].includes(family)) return 'High - designed for password storage';
     if (!bits) return 'Unknown';
-    if (bits < 128) return 'Critical — insufficient bit length';
-    if (family === 'MD5' || family === 'crypt' && bits === 128) return 'Broken — do not use for security';
-    if (family === 'SHA' && bits === 160) return 'Deprecated — avoid for new applications';
-    if (bits >= 256 && ['SHA-2','SHA-3','BLAKE2'].includes(family)) return 'Secure — currently recommended';
+    if (bits < 128) return 'Critical - insufficient bit length';
+    if (family === 'MD5' || family === 'crypt' && bits === 128) return 'Broken - do not use for security';
+    if (family === 'SHA' && bits === 160) return 'Deprecated - avoid for new applications';
+    if (bits >= 256 && ['SHA-2','SHA-3','BLAKE2'].includes(family)) return 'Secure - currently recommended';
     if (bits >= 256) return 'Adequate';
     return 'Use with caution';
   }
@@ -670,30 +663,47 @@
       `╠${hr}╣\n`;
 
     if (matches.length > 1) {
-      out += `║  Multiple possible algorithms (${matches.length} candidates):${' '.repeat(Math.max(0,w-44-String(matches.length).length))}║\n`;
+      const candLine = `  Multiple possible algorithms (${matches.length} candidates):`;
+      out += `║${candLine.padEnd(w)}║\n`;
       out += `╠${hr}╣\n`;
     }
 
     for (let i = 0; i < matches.length; i++) {
       const m = matches[i];
       const rating = securityRating(m.bits, m.family);
-      if (matches.length > 1) out += `║  [ Candidate ${i+1} ]${' '.repeat(Math.max(0,w-16))}║\n`;
+      if (matches.length > 1) {
+        const candHdr = `  [ Candidate ${i+1} ]`;
+        out += `║${candHdr.padEnd(w)}║\n`;
+      }
       out += `║  Algorithm : ${m.name.padEnd(w-14)}║\n`;
       if (m.version) out += `║  Version   : ${m.version.padEnd(w-14)}║\n`;
       out += `║  Family    : ${m.family.padEnd(w-14)}║\n`;
       if (m.bits) out += `║  Bits      : ${String(m.bits).padEnd(w-14)}║\n`;
-      out += `║  Security  : ${rating.substring(0,w-14).padEnd(w-14)}║\n`;
+
+      // word-wrap security rating
+      const secRatingWords = ('Security  : ' + rating).split(' ');
+      let secRatLine = '║  ';
+      for (const word of secRatingWords) {
+        if (secRatLine.length + word.length + 1 > w + 1) {
+          out += secRatLine.padEnd(w + 1) + '║\n';
+          secRatLine = '║             ' + word + ' ';
+        } else { secRatLine += word + ' '; }
+      }
+      if (secRatLine.trim() !== '║') out += secRatLine.trimEnd().padEnd(w + 1) + '║\n';
+
       out += `╠${hr}╣\n`;
-      out += `║  Notes:${' '.repeat(w-7)}║\n`;
+      out += `║  Notes:${' '.repeat(w-8)}║\n`;
+
+      // word-wrap notes
       const words = m.notes.split(' ');
       let line = '║  ';
       for (const word of words) {
-        if ((line+word).length > w+1) {
-          out += line.padEnd(w+2)+'║\n';
-          line = '║  '+word+' ';
-        } else { line += word+' '; }
+        if (line.length + word.length + 1 > w + 1) {
+          out += line.padEnd(w + 1) + '║\n';
+          line = '║  ' + word + ' ';
+        } else { line += word + ' '; }
       }
-      if (line.trim()!=='║') out += line.trimEnd().padEnd(w+2)+'║\n';
+      if (line.trim() !== '║') out += line.trimEnd().padEnd(w + 1) + '║\n';
       if (i < matches.length-1) out += `╠${hr}╣\n`;
     }
 
@@ -707,6 +717,11 @@
   }
 
   /* ─────────────────────────── COPY ─────────────────────────── */
+  function copyHashValue() {
+    const hash = document.getElementById('genOutput').dataset.hash;
+    if (hash) navigator.clipboard.writeText(hash).catch(()=>{});
+  }
+
   function copyOutput(id) {
     const text = document.getElementById(id).textContent;
     navigator.clipboard.writeText(text).catch(()=>{});
