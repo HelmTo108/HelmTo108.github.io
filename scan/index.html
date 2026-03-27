@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>scan — aricbolder.com</title>
+<title>boot — aricbolder.com</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:          #080d14;
-    --bg-panel:    #0c1420;
-    --text:        #8baabb;
-    --dim:         #3d5263;
-    --teal:        #4ec9b0;
-    --green:       #6adf78;
-    --amber:       #e8b84b;
-    --red:         #d94f5c;
-    --blue:        #569cd6;
-    --purple:      #c586c0;
-    --header:      #c8d8e8;
-    --cursor:      #4ec9b0;
+    --bg:       #080d14;
+    --bg-panel: #0c1420;
+    --text:     #8baabb;
+    --dim:      #3a5060;
+    --teal:     #4ec9b0;
+    --green:    #6adf78;
+    --amber:    #e8b84b;
+    --red:      #d94f5c;
+    --blue:     #569cd6;
+    --purple:   #c586c0;
+    --bright:   #c8d8e8;
+    --cursor:   #4ec9b0;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -30,40 +30,34 @@
     color: var(--text);
     font-family: 'JetBrains Mono', 'Courier New', monospace;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.65;
     overflow: hidden;
   }
 
-  /* scanline overlay */
+  /* CRT scanlines */
   body::after {
     content: '';
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.07) 2px,
-      rgba(0,0,0,0.07) 4px
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
     );
     pointer-events: none;
     z-index: 100;
   }
 
-  /* subtle vignette */
+  /* vignette */
   body::before {
     content: '';
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.6) 100%);
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.65) 100%);
     pointer-events: none;
     z-index: 99;
   }
 
   #terminal {
-    position: fixed;
-    inset: 0;
-    padding: 20px 28px 20px 28px;
+    position: fixed; inset: 0;
+    padding: 18px 30px 22px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -73,451 +67,629 @@
   #output {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    width: 100%;
   }
 
   .line {
-    white-space: pre;
     display: block;
-    animation: fadein 0.12s ease-out;
-    overflow: hidden;
-    text-overflow: clip;
+    white-space: pre;
+    min-height: 1.65em;
+    animation: linein 0.08s ease-out;
   }
 
-  @keyframes fadein {
-    from { opacity: 0; transform: translateY(2px); }
-    to   { opacity: 1; transform: translateY(0);   }
+  @keyframes linein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
 
-  /* color classes */
+  /* color helpers */
   .c-dim    { color: var(--dim);    }
   .c-text   { color: var(--text);   }
-  .c-header { color: var(--header); font-weight: 500; }
+  .c-bright { color: var(--bright); }
   .c-teal   { color: var(--teal);   }
-  .c-green  { color: var(--green);  }
+  .c-green  { color: var(--green);  font-weight: 500; }
   .c-amber  { color: var(--amber);  }
   .c-red    { color: var(--red);    }
   .c-blue   { color: var(--blue);   }
   .c-purple { color: var(--purple); }
 
-  /* status badges */
-  .open     { color: var(--green);  font-weight: 500; }
-  .closed   { color: var(--dim);    }
-  .filtered { color: var(--amber);  }
+  /* systemd status brackets */
+  .ok     { color: var(--green);  }
+  .fail   { color: var(--red);    }
+  .warn   { color: var(--amber);  }
+  .info   { color: var(--blue);   }
+  .svc    { color: var(--text);   }
 
-  /* prompt line */
-  .prompt::before {
-    content: '$ ';
-    color: var(--teal);
-  }
-
-  /* status bar at top */
-  #statusbar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 28px;
-    background: var(--bg-panel);
-    border-bottom: 1px solid #1a2a38;
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-    gap: 24px;
-    z-index: 50;
-    font-size: 11px;
-    color: var(--dim);
-  }
-
-  #statusbar .sb-label { color: var(--teal); }
-  #statusbar .sb-val   { color: var(--text); margin-left: 4px; }
-  #statusbar .sb-sep   { color: #1e3040; }
-  #statusbar .sb-right { margin-left: auto; display: flex; gap: 24px; }
-
-  #cursor-blink {
+  /* blinking block cursor */
+  .typed-cursor {
     display: inline-block;
-    width: 8px; height: 14px;
+    width: 8px; height: 13px;
     background: var(--cursor);
-    animation: blink 1.1s step-end infinite;
     vertical-align: middle;
-    margin-left: 2px;
-    opacity: 0.85;
+    animation: blink 1s step-end infinite;
+    opacity: 0.9;
   }
 
   @keyframes blink {
-    0%, 100% { opacity: 0.85; }
-    50%       { opacity: 0;    }
+    0%,100% { opacity: 0.9; }
+    50%      { opacity: 0;   }
   }
-
-  #terminal { padding-top: 38px; }
 </style>
 </head>
 <body>
-
-<div id="statusbar">
-  <span><span class="sb-label">HOST</span><span class="sb-val" id="sb-host">—</span></span>
-  <span class="sb-sep">│</span>
-  <span><span class="sb-label">OPEN</span><span class="sb-val" id="sb-open">0</span></span>
-  <span class="sb-sep">│</span>
-  <span><span class="sb-label">FILTERED</span><span class="sb-val" id="sb-filt">0</span></span>
-  <span class="sb-sep">│</span>
-  <span><span class="sb-label">RANGE</span><span class="sb-val" id="sb-range">—</span></span>
-  <div class="sb-right">
-    <span><span class="sb-label">SCANNED</span><span class="sb-val" id="sb-scanned">0</span></span>
-    <span class="sb-sep">│</span>
-    <span><span class="sb-val" id="sb-time">00:00:00</span></span>
-  </div>
-</div>
-
-<div id="terminal">
-  <div id="output"></div>
-</div>
-
+<div id="terminal"><div id="output"></div></div>
 <script>
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-const MAX_LINES        = 260;
-const LINE_INTERVAL_MS = 55;    // ms between lines (base speed)
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const sleep  = ms => new Promise(r => setTimeout(r, ms));
+const rand   = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const pick   = a => a[rand(0,a.length-1)];
+const pad    = (s,n) => String(s).padEnd(n);
+const lpad   = (s,n) => String(s).padStart(n,' ');
+const hex2   = n => n.toString(16).padStart(2,'0');
+const hex4   = n => n.toString(16).padStart(4,'0');
+const hex8   = n => n.toString(16).padStart(8,'0');
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
-let hostsScanned = 0;
-let sessionStart  = Date.now();
+// ─── OUTPUT ENGINE ───────────────────────────────────────────────────────────
+const output  = document.getElementById('output');
+const MAX_LINES = 320;
 
-// ─── UTILITIES ───────────────────────────────────────────────────────────────
-const rand  = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
-const pick  = arr => arr[rand(0, arr.length - 1)];
-const pad   = (s, n) => String(s).padEnd(n);
-const lpad  = (s, n) => String(s).padStart(n);
-const hex   = n => n.toString(16).padStart(2,'0').toUpperCase();
-const mac   = () => Array.from({length:6}, () => hex(rand(0,255))).join(':');
-
-function ip(a,b,c,d) {
-  return `${a ?? rand(1,254)}.${b ?? rand(0,254)}.${c ?? rand(0,254)}.${d ?? rand(1,254)}`;
+function appendEl(html, extraClass='') {
+  const el = document.createElement('span');
+  el.className = 'line' + (extraClass ? ' '+extraClass : '');
+  el.innerHTML = html;
+  output.appendChild(el);
+  while (output.children.length > MAX_LINES) output.removeChild(output.firstChild);
+  return el;
 }
 
-function cidr(prefix) {
-  const p = prefix ?? pick([16,18,20,22,24]);
-  const a = rand(10,220), b = rand(0,254);
-  return `${a}.${b}.0.0/${p}`;
+function blank(cls='c-dim') { appendEl('&nbsp;', cls); }
+
+// print a line immediately (no await)
+function printNow(html, cls='') { appendEl(html, cls); }
+
+// print with a preceding delay
+async function print(html, pre=0, cls='') {
+  if (pre) await sleep(pre);
+  appendEl(html, cls);
 }
 
-function rtt() {
-  const ms = (Math.random() * 48 + 0.4).toFixed(3);
-  return `${ms}ms`;
+// print many lines with a fixed gap between each
+async function burst(lines, gap=14) {
+  for (const l of lines) { appendEl(l); await sleep(gap); }
 }
 
-function ts() {
-  return new Date().toISOString().replace('T',' ').slice(0,19);
+async function measured(lines, gap=210, jitter=80) {
+  for (const l of lines) { appendEl(l); await sleep(gap + rand(-jitter, jitter)); }
 }
 
-// ─── HOSTNAME GENERATORS ─────────────────────────────────────────────────────
-const hostPrefixes = ['srv','web','db','mail','vpn','fw','ap','sw','nas','mon','proxy','git','ci','ldap','dc','backup','mgmt','edge','gw','k8s','dev','prod','test','stage','infra','nfs','radius','siem','ids','waf'];
-const domains = ['internal','corp.local','lan','priv','net','infra.local','mgmt.local','dmz.local'];
-
-function hostname(ipAddr) {
-  const pfx = pick(hostPrefixes);
-  const n   = rand(1,99);
-  const dom = pick(domains);
-  return `${pfx}-${lpad(n,2).replace(' ','0')}.${dom}`;
-}
-
-// ─── SERVICES ────────────────────────────────────────────────────────────────
-const services = [
-  { port:21,   name:'ftp',        banner:'vsftpd 3.0.5',               proto:'tcp' },
-  { port:22,   name:'ssh',        banner:'OpenSSH 8.9p1 Ubuntu-3ubuntu0.6',  proto:'tcp' },
-  { port:23,   name:'telnet',     banner:'Linux telnetd',              proto:'tcp' },
-  { port:25,   name:'smtp',       banner:'Postfix smtpd',              proto:'tcp' },
-  { port:53,   name:'domain',     banner:'dnsmasq 2.89',               proto:'tcp' },
-  { port:80,   name:'http',       banner:'Apache httpd 2.4.57',        proto:'tcp' },
-  { port:110,  name:'pop3',       banner:'Dovecot pop3d',              proto:'tcp' },
-  { port:111,  name:'rpcbind',    banner:'2-4 (RPC #100000)',          proto:'tcp' },
-  { port:135,  name:'msrpc',      banner:'Microsoft Windows RPC',      proto:'tcp' },
-  { port:139,  name:'netbios-ssn',banner:'Samba smbd 4.x',            proto:'tcp' },
-  { port:143,  name:'imap',       banner:'Dovecot imapd',              proto:'tcp' },
-  { port:161,  name:'snmp',       banner:'SNMPv2c',                    proto:'udp' },
-  { port:389,  name:'ldap',       banner:'OpenLDAP 2.6.3',             proto:'tcp' },
-  { port:443,  name:'https',      banner:'nginx 1.24.0',               proto:'tcp' },
-  { port:445,  name:'microsoft-ds',banner:'Samba 4.17.12',            proto:'tcp' },
-  { port:465,  name:'smtps',      banner:'Postfix smtpd',              proto:'tcp' },
-  { port:514,  name:'syslog',     banner:'rsyslogd',                   proto:'udp' },
-  { port:636,  name:'ldapssl',    banner:'OpenLDAP 2.6.3',             proto:'tcp' },
-  { port:993,  name:'imaps',      banner:'Dovecot imapd',              proto:'tcp' },
-  { port:995,  name:'pop3s',      banner:'Dovecot pop3d',              proto:'tcp' },
-  { port:1194, name:'openvpn',    banner:'OpenVPN 2.6.4',              proto:'udp' },
-  { port:1433, name:'ms-sql-s',   banner:'Microsoft SQL Server 2019',  proto:'tcp' },
-  { port:1521, name:'oracle',     banner:'Oracle TNS Listener',        proto:'tcp' },
-  { port:2049, name:'nfs',        banner:'NFS 3-4',                    proto:'tcp' },
-  { port:2181, name:'zookeeper',  banner:'Apache ZooKeeper 3.8.2',     proto:'tcp' },
-  { port:3000, name:'http',       banner:'Grafana 10.2.0',             proto:'tcp' },
-  { port:3306, name:'mysql',      banner:'MySQL 8.0.35',               proto:'tcp' },
-  { port:3389, name:'ms-wbt-server',banner:'Microsoft Terminal Services',proto:'tcp' },
-  { port:4369, name:'epmd',       banner:'Erlang Port Mapper Daemon',  proto:'tcp' },
-  { port:5000, name:'http',       banner:'Docker Registry 2.8.3',      proto:'tcp' },
-  { port:5432, name:'postgresql', banner:'PostgreSQL 15.5',            proto:'tcp' },
-  { port:5601, name:'http',       banner:'Kibana 8.11.0',              proto:'tcp' },
-  { port:5671, name:'amqps',      banner:'RabbitMQ 3.12.9',           proto:'tcp' },
-  { port:5672, name:'amqp',       banner:'RabbitMQ 3.12.9',           proto:'tcp' },
-  { port:6379, name:'redis',      banner:'Redis 7.2.3',               proto:'tcp' },
-  { port:6443, name:'sun-sr-https',banner:'Kubernetes API Server',    proto:'tcp' },
-  { port:8080, name:'http-proxy', banner:'nginx 1.24.0',              proto:'tcp' },
-  { port:8443, name:'https-alt',  banner:'nginx 1.24.0',              proto:'tcp' },
-  { port:8883, name:'mqtt',       banner:'Eclipse Mosquitto 2.0.18',  proto:'tcp' },
-  { port:9092, name:'kafka',      banner:'Apache Kafka 3.6.0',        proto:'tcp' },
-  { port:9200, name:'http',       banner:'Elasticsearch 8.11.0',      proto:'tcp' },
-  { port:9300, name:'vrace',      banner:'Elasticsearch cluster',      proto:'tcp' },
-  { port:10250,name:'http',       banner:'Kubernetes kubelet',         proto:'tcp' },
-  { port:27017,name:'mongodb',    banner:'MongoDB 7.0.4',              proto:'tcp' },
-];
-
-const nseTitles = [
-  'auth','default','discovery','exploit','external','intrusive','malware','safe','version','vuln'
-];
-
-const nseScripts = {
-  ssh: [
-    line => `|   ssh-hostkey:`,
-    line => `|     2048 ${mac().replace(/:/g,'').slice(0,32)} (RSA)`,
-    line => `|     256  ${mac().replace(/:/g,'').slice(0,32)} (ECDSA)`,
-    line => `|_    256  ${mac().replace(/:/g,'').slice(0,32)} (ED25519)`,
-    line => `| ssh-auth-methods:`,
-    line => `|   Supported authentications: publickey,password`,
-    line => `|_  Preferred authentications: publickey`,
-  ],
-  http: [
-    line => `| http-title: ${pick(['Apache2 Ubuntu Default Page','nginx Welcome','401 Unauthorized','403 Forbidden','Internal Server Error','GitLab','Grafana','Kibana'])}`,
-    line => `| http-server-header: ${pick(['Apache/2.4.57 (Ubuntu)','nginx/1.24.0','Microsoft-IIS/10.0'])}`,
-    line => `|_http-generator: ${pick(['WordPress 6.4','Jekyll 4.3','Hugo 0.120','React App'])}`,
-  ],
-  smb: [
-    line => `| smb2-security-mode:`,
-    line => `|   ${rand(2,3)}.${rand(0,1)}:`,
-    line => `|_    Message signing ${pick(['enabled and required','enabled but not required'])}`,
-    line => `| smb2-time:`,
-    line => `|   date: ${ts()}`,
-    line => `|_  start_date: N/A`,
-  ],
-  ssl: [
-    line => `| ssl-cert: Subject: commonName=${pick(['*.internal','srv.corp.local','ldap.infra.local'])}`,
-    line => `| Issuer: commonName=${pick(['Internal CA','Let\'s Encrypt Authority X3','COMODO RSA'])}`,
-    line => `| Not valid before: ${rand(2020,2023)}-${lpad(rand(1,12),2).replace(' ','0')}-01T00:00:00`,
-    line => `|_Not valid after:  ${rand(2024,2026)}-${lpad(rand(1,12),2).replace(' ','0')}-01T00:00:00`,
-  ],
-  snmp: [
-    line => `| snmp-info:`,
-    line => `|   enterprise: ${pick(['net-snmp','Cisco','HP','Juniper','Fortinet'])}`,
-    line => `|   engineIDFormat: ${pick(['mac','text','oct'])}`,
-    line => `|   engineIDData: ${mac()}`,
-    line => `|   snmpEngineBoots: ${rand(1,9999)}`,
-    line => `|_  snmpEngineTime: ${rand(1,999)}d${rand(0,23)}h${rand(0,59)}m`,
-  ],
+// ─── COLOR WRAPPERS ──────────────────────────────────────────────────────────
+const c = {
+  dim:    s => `<span class="c-dim">${esc(s)}</span>`,
+  text:   s => `<span class="c-text">${esc(s)}</span>`,
+  bright: s => `<span class="c-bright">${esc(s)}</span>`,
+  teal:   s => `<span class="c-teal">${esc(s)}</span>`,
+  green:  s => `<span class="c-green">${esc(s)}</span>`,
+  amber:  s => `<span class="c-amber">${esc(s)}</span>`,
+  red:    s => `<span class="c-red">${esc(s)}</span>`,
+  blue:   s => `<span class="c-blue">${esc(s)}</span>`,
+  purple: s => `<span class="c-purple">${esc(s)}</span>`,
 };
 
-// ─── OS FINGERPRINTS ─────────────────────────────────────────────────────────
-const osGuesses = [
-  'Linux 4.15 - 5.19',
-  'Linux 5.4 - 5.15',
-  'Linux 5.15 - 6.1',
-  'Ubuntu 20.04 LTS',
-  'Ubuntu 22.04 LTS',
-  'Debian GNU/Linux 11 (bullseye)',
-  'CentOS Linux 7 (Core)',
-  'Rocky Linux 8.9',
-  'FreeBSD 13.2',
-  'Microsoft Windows Server 2019',
-  'Microsoft Windows Server 2022',
-  'Microsoft Windows 10 21H2',
-  'Cisco IOS 15.x',
-  'Fortinet FortiOS 7.x',
-  'VMware ESXi 7.0',
-  'pfSense 2.7.x (FreeBSD 14.0)',
+// ─── TYPING EFFECT ───────────────────────────────────────────────────────────
+async function typeLine(promptHtml, cmd, preDelay=900) {
+  await sleep(preDelay);
+  const el = appendEl(promptHtml + '<span class="typed-cursor"></span>');
+  await sleep(180);
+
+  let typed = '';
+  const cursor = el.querySelector('.typed-cursor');
+
+  for (const ch of cmd) {
+    typed += ch;
+    el.innerHTML = promptHtml + esc(typed) + '<span class="typed-cursor"></span>';
+    await sleep(rand(48, 140));
+  }
+
+  el.innerHTML = promptHtml + esc(cmd);
+  await sleep(220);
+}
+
+// ─── RANDOM DATA GENERATORS ──────────────────────────────────────────────────
+function kernelVer() {
+  return pick(['6.1.69','6.5.13','6.6.8','5.15.148','6.2.16','6.8.2']);
+}
+function distro() {
+  return pick([
+    {name:'Ubuntu 22.04.3 LTS', id:'ubuntu'},
+    {name:'Debian GNU/Linux 12 (bookworm)', id:'debian'},
+    {name:'Rocky Linux 8.9 (Green Obsidian)', id:'rocky'},
+    {name:'CentOS Stream 9', id:'centos'},
+    {name:'Arch Linux', id:'arch'},
+  ]);
+}
+function hardware() {
+  const cpu = pick([
+    'Intel(R) Xeon(R) Silver 4314 CPU @ 2.40GHz',
+    'AMD EPYC 7302P 16-Core Processor',
+    'Intel(R) Core(TM) i7-12700 @ 2.10GHz',
+    'Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz',
+    'AMD Ryzen 9 5950X 16-Core Processor',
+  ]);
+  const cores   = pick([4,8,16,32]);
+  const ramGB   = pick([8,16,32,64,128]);
+  const ramMB   = ramGB * 1024;
+  const disk    = pick([
+    {dev:'nvme0n1', model:'Samsung 980 PRO 1TB',   size:'953.9 GiB'},
+    {dev:'sda',     model:'ST4000DM004-2CV104',     size:'3.6 TiB'},
+    {dev:'nvme0n1', model:'WD_BLACK SN850X 2TB',    size:'1.8 TiB'},
+    {dev:'vda',     model:'VirtIO Block Device',     size:'80 GiB'},
+    {dev:'sda',     model:'QEMU HARDDISK',           size:'64 GiB'},
+  ]);
+  const nic = pick([
+    {dev:'eth0',  driver:'e1000e',   speed:'1000Mbps'},
+    {dev:'ens3',  driver:'virtio_net',speed:'10000Mbps'},
+    {dev:'enp3s0',driver:'r8169',    speed:'1000Mbps'},
+    {dev:'ens192',driver:'vmxnet3',  speed:'10000Mbps'},
+  ]);
+  return { cpu, cores, ramGB, ramMB, disk, nic };
+}
+function hostname() {
+  const pfx = pick(['srv','web','db','fw','vpn','mon','mgmt','prod','dev','k8s','ci','nas','edge']);
+  const n   = lpad(rand(1,99), 2).replace(' ','0');
+  const dom = pick(['corp.local','internal','lan','mgmt.local','infra.local']);
+  return `${pfx}-${n}.${dom}`;
+}
+function pciAddr() {
+  return `${hex4(rand(0,8))}:${hex2(rand(0,31))}:${hex2(rand(0,7))}.${rand(0,7)}`;
+}
+function ktime(base, delta) {
+  const t = base + delta;
+  return `[${lpad(t.toFixed(6),12)}]`;
+}
+
+// ─── PHASE 1: BIOS / FIRMWARE ─────────────────────────────────────────────────
+async function phaseBios(hw) {
+  const bios = pick([
+    { type:'UEFI', vendor:'American Megatrends', ver:`${rand(2,5)}.${rand(0,9)}${rand(0,9)}${rand(0,9)}` },
+    { type:'SeaBIOS', vendor:'SeaBIOS', ver:'1.16.2' },
+    { type:'OVMF', vendor:'OVMF', ver:'202302' },
+  ]);
+
+  await burst([
+    bios.type === 'SeaBIOS'
+      ? c.dim(`SeaBIOS (version ${bios.ver})`)
+      : c.dim(`${bios.vendor} UEFI BIOS Utility — Version ${bios.ver}`),
+    c.dim(`Copyright (C) ${bios.vendor}. All Rights Reserved.`),
+  ], 60);
+
+  blank();
+  await sleep(200);
+
+  await burst([
+    c.text(`CPU: ${hw.cpu}`),
+    c.text(`Cores: ${hw.cores}  Threads: ${hw.cores*2}  Speed: ${rand(2000,3600)} MHz`),
+    c.text(`Total Memory: ${hw.ramMB} MB`),
+  ], 55);
+
+  await sleep(180);
+
+  await burst([
+    c.dim(`Detecting storage devices...`),
+    c.text(`  [${rand(0,3)}] ${hw.disk.model}  (${hw.disk.dev})  ${hw.disk.size}`),
+    c.dim(`Initializing PCI Express...`),
+    c.text(`  [${pciAddr()}] ${pick(['Intel Corporation','Broadcom','Realtek','VMware'])}: ${pick(['Ethernet Controller','SCSI Controller','USB Controller','Audio Device'])}`),
+  ], 55);
+
+  blank();
+  await sleep(150);
+  printNow(c.dim('Loading boot loader...'));
+  await sleep(420);
+}
+
+// ─── PHASE 2: GRUB ───────────────────────────────────────────────────────────
+async function phaseGrub(dist, kv) {
+  blank();
+  await burst([
+    c.bright(`                        GNU GRUB  version 2.12`),
+  ], 80);
+  blank();
+
+  await burst([
+    c.teal(`  *${dist.name}, with Linux ${kv}`),
+    c.dim(`   ${dist.name}, with Linux ${kv} (recovery mode)`),
+    c.dim(`   Advanced options for ${dist.name}`),
+    c.dim(`   UEFI Firmware Settings`),
+  ], 35);
+
+  blank();
+
+  // countdown line — update in place
+  const cdEl = appendEl(c.dim(`   The highlighted entry will be executed automatically in 3s`));
+  for (let i = 2; i >= 0; i--) {
+    await sleep(500);
+    cdEl.innerHTML = c.dim(`   The highlighted entry will be executed automatically in ${i}s`);
+  }
+  blank();
+  await sleep(200);
+}
+
+// ─── PHASE 3: KERNEL DECOMPRESS ──────────────────────────────────────────────
+async function phaseKernelStart(kv) {
+  await burst([
+    c.dim(`Decompressing Linux... `),
+    c.dim(`Parsing EFI HOB list`),
+    c.bright(`[    0.000000] Booting Linux on physical CPU 0x0`),
+    c.bright(`[    0.000000] Linux version ${kv} (gcc version 12.3.0 (Ubuntu 12.3.0-1ubuntu1~22.04)) #1 SMP PREEMPT_DYNAMIC`),
+  ], 80);
+}
+
+// ─── PHASE 4: DMESG FLOOD ────────────────────────────────────────────────────
+async function phaseDmesg(hw, kv) {
+  let t = 0.0;
+  const T = () => { t += Math.random()*0.04+0.001; return `[${lpad(t.toFixed(6),12)}]`; };
+
+  const lines = [
+    c.dim(`${T()} BIOS-provided physical RAM map:`),
+    c.dim(`${T()} BIOS-e820: [mem 0x0000000000000000-0x000000000009efff] usable`),
+    c.dim(`${T()} BIOS-e820: [mem 0x0000000000100000-0x${hex8(hw.ramMB*1024*1024-1)}] usable`),
+    c.dim(`${T()} NX (Execute Disable) protection: active`),
+    c.dim(`${T()} ACPI: RSDP 0x00000000000F05B0 000024 (v02 BOCHS )`),
+    c.dim(`${T()} ACPI: RSDT 0x0000000007FE18D3 000054 (v01 BOCHS  BXPC    00000001 BXPC 00000001)`),
+    c.text(`${T()} DMI: ${pick(['QEMU Standard PC','VMware, Inc. VMware Virtual Platform','Dell Inc. PowerEdge R740','Supermicro X11SCL-F'])}, BIOS ${rand(1,9)}.${rand(0,9)}.${rand(0,9)} ${rand(1,12)}/${rand(1,30)}/202${rand(0,3)}`),
+    c.dim(`${T()} tsc: Detected ${(rand(2000,3800)+(Math.random())).toFixed(3)} MHz processor`),
+    c.dim(`${T()} e820: update [mem 0x00000000-0x00000fff] usable ==> reserved`),
+    c.dim(`${T()} e820: remove [mem 0x000a0000-0x000fffff] usable`),
+    c.text(`${T()} No NUMA configuration found`),
+    c.text(`${T()} ACPI: IRQ0 used by override.`),
+    c.dim(`${T()} IOAPIC[0]: apic_id 0, version 32, address 0xfec00000, GSI 0-23`),
+    c.dim(`${T()} ACPI: INT_SRC_OVR (bus 0 bus_irq 5 global_irq 5 dfl dfl)`),
+    c.dim(`${T()} ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)`),
+    c.text(`${T()} PCI: Using configuration type 1 for base access`),
+    c.dim(`${T()} clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x${hex8(rand(0,0xffffffff))}, max_idle_ns: 440795265026 ns`),
+    c.text(`${T()} Spectre V2 : Enabling Restricted Speculation for firmware calls`),
+    c.text(`${T()} Spectre V2 : mitigation: Enabling Restricted Speculation`),
+    c.dim(`${T()} ${hw.cores} virtual CPUs found`),
+    c.text(`${T()} CPU0: Intel ${pick(['Cascade Lake','Ice Lake','Sapphire Rapids','Skylake'])} stepping ${rand(1,15)}`),
+    c.dim(`${T()} Performance Events: Skylake events, Intel PMU driver.`),
+    c.dim(`${T()} ... version:                4`),
+    c.dim(`${T()} ... bit width:              48`),
+    c.dim(`${T()} ... generic registers:      4`),
+    c.dim(`${T()} ... value mask:             0000ffffffffffff`),
+    c.text(`${T()} Memory: ${hw.ramMB*1024-rand(80000,200000)}K/${hw.ramMB*1024}K available`),
+    c.dim(`${T()} SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=${hw.cores}, Nodes=1`),
+    c.dim(`${T()} ACPI: bus type USB registered`),
+    c.dim(`${T()} NetLabel: Initializing`),
+    c.dim(`${T()} NetLabel:  domain hash size = 128`),
+    c.dim(`${T()} NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO`),
+    c.text(`${T()} clocksource: Switched to clocksource tsc`),
+    c.dim(`${T()} pnp: PnP ACPI init`),
+    c.dim(`${T()} pnp: PnP ACPI: found ${rand(4,18)} devices`),
+    c.text(`${T()} PCI: Setting latency timer of device ${pciAddr()} to 64`),
+    c.text(`${T()} PCI 0000:00: root bus resource [io  0x0000-0x0cf7 window]`),
+    c.text(`${T()} PCI 0000:00: root bus resource [mem 0x000a0000-0x000bffff window]`),
+    c.text(`${T()} PCI 0000:00: root bus resource [mem 0xe0000000-0xffffffff window]`),
+    c.dim(`${T()} pci ${pciAddr()}: [${hex4(rand(0x1000,0x8086))}:${hex4(rand(0x1000,0xffff))}] type 00 class 0x010180`),
+    c.dim(`${T()} pci ${pciAddr()}: [${hex4(rand(0x1000,0x8086))}:${hex4(rand(0x1000,0xffff))}] type 00 class 0x030000`),
+    c.dim(`${T()} pci ${pciAddr()}: [${hex4(rand(0x1000,0x8086))}:${hex4(rand(0x1000,0xffff))}] type 00 class 0x0c0330`),
+    c.text(`${T()} ACPI: Power Button [PWRF]`),
+    c.text(`${T()} Serial: 8250/16550 driver, 4 ports, IRQ sharing enabled`),
+    c.dim(`${T()} 00:01: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A`),
+    c.text(`${T()} Non-volatile memory driver v1.3`),
+    c.text(`${T()} Linux agpgart interface v0.103`),
+    c.text(`${T()} brd: module loaded`),
+    c.dim(`${T()} loop: module loaded`),
+    c.text(`${T()} virtio_blk virtio0: [vda] ${rand(10000000, 200000000)} 512-byte logical blocks (${Math.round(rand(10,500))} GB/${Math.round(rand(10,500))} GiB)`),
+    c.text(`${T()} ${hw.disk.dev}: ${hw.disk.model}`),
+    c.dim(`${T()} ${hw.disk.dev}: [sda] ${rand(100000000,2000000000)} 512-byte logical blocks (${hw.disk.size})`),
+    c.dim(`${T()} ${hw.disk.dev}: [sda] Write Protect is off`),
+    c.dim(`${T()} ${hw.disk.dev}: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA`),
+    c.text(`${T()} ${hw.disk.dev}: ${hw.disk.dev}1 ${hw.disk.dev}2 ${hw.disk.dev}3`),
+    c.dim(`${T()} sd ${hw.disk.dev}: Attached SCSI disk`),
+    c.text(`${T()} ${hw.nic.dev}: renamed from eth${rand(0,3)}`),
+    c.text(`${T()} ${hw.nic.dev}: ${hw.nic.driver} driver v${rand(1,5)}.${rand(0,9)}.${rand(0,9)}`),
+    c.dim(`${T()} EXT4-fs (${hw.disk.dev}2): mounting ext4 filesystem with default options`),
+    c.text(`${T()} EXT4-fs (${hw.disk.dev}2): mounted filesystem with ordered data mode. Quota mode: none.`),
+    c.dim(`${T()} VFS: Mounted root (ext4 filesystem) on device ${rand(8,253)}:${rand(1,20)}.`),
+    c.dim(`${T()} Freeing unused kernel image (initmem) memory: ${rand(1000,3000)}K`),
+    c.text(`${T()} Write protecting the kernel read-only data: ${rand(10,24)}k`),
+    c.text(`${T()} Freeing unused kernel image (rodata/data gap) memory: ${rand(400,1600)}K`),
+    c.dim(`${T()} Run /init as init process`),
+    c.dim(`${T()} systemd[1]: Detected virtualization ${pick(['kvm','vmware','xen','none'])}.`),
+    c.dim(`${T()} systemd[1]: Detected architecture x86-64.`),
+  ];
+
+  await burst(lines, 13);
+}
+
+// ─── PHASE 5: SYSTEMD INIT ───────────────────────────────────────────────────
+const STATUS = {
+  ok:   txt => `  [${`<span class="ok">  OK  </span>`}] ${esc(txt)}`,
+  fail: txt => `  [${`<span class="fail"> FAIL </span>`}] ${esc(txt)}`,
+  warn: txt => `  [${`<span class="warn"> WARN </span>`}] ${esc(txt)}`,
+  info: txt => `  [${`<span class="info"> INFO </span>`}] ${esc(txt)}`,
+  star: txt => `         <span class="c-teal">*</span> ${esc(txt)}`,
+};
+
+const UNITS = [
+  { starting:'Mounting /proc/sys/fs/binfmt_misc...', started:'Mounted /proc/sys/fs/binfmt_misc.', state:'ok', delay:rand(120,280) },
+  { starting:'Starting Journal Service...', started:'Started Journal Service.', state:'ok', delay:rand(200,500) },
+  { starting:null, started:'Set Up Additional Binary Formats.', state:'ok', delay:0 },
+  { starting:'Activating swap /swapfile...', started:'Activated swap /swapfile.', state:'ok', delay:rand(100,300) },
+  { starting:'Mounting /tmp...', started:'Mounted /tmp.', state:'ok', delay:rand(80,200) },
+  { starting:'Starting Set the System Clock...', started:'Finished Set the System Clock.', state:'ok', delay:rand(50,200) },
+  { starting:'Starting Create Static Device Nodes in /dev...', started:'Finished Create Static Device Nodes in /dev.', state:'ok', delay:rand(100,300) },
+  { starting:'Starting Rebuild Hardware Database...', started:'Finished Rebuild Hardware Database.', state:'ok', delay:rand(800,2200) },
+  { starting:'Starting udev Kernel Device Manager...', started:'Started udev Kernel Device Manager.', state:'ok', delay:rand(200,500) },
+  { starting:'Starting Load Kernel Modules...', started:'Finished Load Kernel Modules.', state:'ok', delay:rand(100,250) },
+  { starting:'Starting Remount Root and Kernel File Systems...', started:'Finished Remount Root and Kernel File Systems.', state:'ok', delay:rand(100,300) },
+  { starting:'Mounting /sys/kernel/config...', started:'Mounted /sys/kernel/config.', state:'ok', delay:rand(50,150) },
+  { starting:null, started:'Reached target Local File Systems (Pre).', state:'ok', delay:0 },
+  { starting:'Starting Apply Kernel Variables...', started:'Finished Apply Kernel Variables.', state:'ok', delay:rand(80,200) },
+  { starting:'Starting Create System Users...', started:'Finished Create System Users.', state:'ok', delay:rand(80,200) },
+  { starting:'Starting Create Static Device Nodes in /dev...', started:'Finished Create Static Device Nodes in /dev.', state:'ok', delay:rand(50,180) },
+  { starting:'Checking file systems on /...', started:'Finished checking file systems.', state:'ok', delay:rand(300,900) },
+  { starting:'Checking file systems on /boot/efi...', started:'Finished file system check on /boot/efi.', state:'ok', delay:rand(100,400) },
+  { starting:'Mounting /boot/efi...', started:'Mounted /boot/efi.', state:'ok', delay:rand(80,200) },
+  { starting:null, started:'Reached target Local File Systems.', state:'ok', delay:0 },
+  { starting:'Starting Flush Journal to Persistent Storage...', started:'Finished Flush Journal to Persistent Storage.', state:'ok', delay:rand(100,400) },
+  { starting:'Starting Create Volatile Files and Directories...', started:'Finished Create Volatile Files and Directories.', state:'ok', delay:rand(80,200) },
+  { starting:'Starting Network Time Synchronization...', started:'Started Network Time Synchronization.', state:'ok', delay:rand(300,800) },
+  { starting:'Starting Update UTMP about System Boot/Shutdown...', started:'Finished Update UTMP about System Boot/Shutdown.', state:'ok', delay:rand(60,180) },
+  { starting:null, started:'Reached target System Time Set.', state:'ok', delay:0 },
+  { starting:null, started:'Reached target System Time Synchronized.', state:'ok', delay:0 },
+  { starting:'Starting Network Manager...', started:'Started Network Manager.', state:'ok', delay:rand(400,900) },
+  { starting:'Starting containerd container runtime...', started:'Started containerd container runtime.', state:rand(0,5)?'ok':'warn', delay:rand(600,1800) },
+  { starting:'Starting OpenSSH Server Daemon...', started:'Started OpenSSH Server Daemon.', state:'ok', delay:rand(200,600) },
+  { starting:'Starting Postfix Mail Transport Agent...', started:'Started Postfix Mail Transport Agent.', state:rand(0,4)?'ok':'fail', delay:rand(300,700) },
+  { starting:'Starting System Logging Service...', started:'Started System Logging Service.', state:'ok', delay:rand(100,350) },
+  { starting:'Starting Cron Daemon...', started:'Started Cron Daemon.', state:'ok', delay:rand(100,300) },
+  { starting:'Starting firewalld - dynamic firewall daemon...', started:'Started firewalld - dynamic firewall daemon.', state:'ok', delay:rand(400,1100) },
+  { starting:'Starting Disk Manager...', started:'Started Disk Manager.', state:'ok', delay:rand(300,700) },
+  { starting:'Starting Permit User Sessions...', started:'Finished Permit User Sessions.', state:'ok', delay:rand(100,250) },
+  { starting:null, started:'Reached target Multi-User System.', state:'ok', delay:0 },
+  { starting:null, started:'Reached target Graphical Interface.', state:rand(0,1)?'ok':'info', delay:0 },
+  { starting:'Starting Update UTMP about System Runlevel Changes...', started:'Finished Update UTMP about System Runlevel Changes.', state:'ok', delay:rand(50,150) },
 ];
 
-// ─── LINE QUEUE SYSTEM ───────────────────────────────────────────────────────
-const output  = document.getElementById('output');
-let lineQueue = [];
-let rendering = false;
+async function phaseSystemd(host, dist) {
+  blank();
+  printNow(`         <span class="c-teal">systemd</span> <span class="c-dim">${esc(dist.name)} (${host})</span>`);
+  blank();
+  await sleep(400);
 
-function enqueue(html, delay = 0) {
-  lineQueue.push({ html, delay });
-}
-
-function enqueueBlank() { enqueue('<span class="line c-dim"> </span>'); }
-
-function renderNext() {
-  if (lineQueue.length === 0) { rendering = false; return; }
-  rendering = true;
-  const { html, delay } = lineQueue.shift();
-
-  setTimeout(() => {
-    const el = document.createElement('div');
-    el.innerHTML = html;
-    output.appendChild(el.firstChild || el);
-
-    // trim old lines
-    while (output.children.length > MAX_LINES) {
-      output.removeChild(output.firstChild);
+  for (const unit of UNITS) {
+    // "Starting..." line
+    if (unit.starting) {
+      printNow(STATUS.star(unit.starting));
+      await sleep(unit.delay);
     }
 
-    setTimeout(renderNext, LINE_INTERVAL_MS);
-  }, delay);
+    // status result line
+    if (unit.state === 'ok')   printNow(STATUS.ok(unit.started));
+    if (unit.state === 'fail') printNow(STATUS.fail('Failed to start ' + unit.started.replace(/^(Started|Finished) /,'')));
+    if (unit.state === 'warn') printNow(STATUS.warn(unit.started));
+    if (unit.state === 'info') printNow(STATUS.info(unit.started));
+
+    await sleep(rand(60,160));
+  }
 }
 
-function startRendering() {
-  if (!rendering) renderNext();
+// ─── PHASE 6: LOGIN PROMPT ───────────────────────────────────────────────────
+async function phaseLogin(host, dist) {
+  blank();
+  await sleep(900);
+  printNow(c.dim(`Ubuntu ${dist.name === 'Ubuntu 22.04.3 LTS' ? '22.04.3' : '20.04'} LTS ${host} tty1`));
+  blank();
+  await sleep(400);
+
+  const user = pick(['aric','admin','sysadmin','ubuntu','operator']);
+  const el = appendEl(c.bright(`${host} login: `) + '<span class="typed-cursor"></span>');
+  await sleep(1400);
+
+  let typed = '';
+  for (const ch of user) {
+    typed += ch;
+    el.innerHTML = c.bright(`${host} login: `) + esc(typed) + '<span class="typed-cursor"></span>';
+    await sleep(rand(70,130));
+  }
+  el.innerHTML = c.bright(`${host} login: `) + esc(user);
+
+  // password field (no echo)
+  await sleep(350);
+  printNow(c.bright(`Password: `));
+  await sleep(rand(1200, 2200));
+
+  return user;
 }
 
-// ─── SPAN HELPERS ────────────────────────────────────────────────────────────
-const span = (cls, txt) => `<span class="line ${cls}">${esc(txt)}</span>`;
-function esc(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+// ─── PHASE 7: MOTD + SHELL SESSION ───────────────────────────────────────────
+async function phaseSession(host, user, dist, hw) {
+  blank();
+  await sleep(300);
 
-// ─── SCAN GENERATOR ──────────────────────────────────────────────────────────
-function generateScan() {
-  const targetIP   = ip();
-  const targetHost = hostname(targetIP);
-  const range      = cidr(rand(22,24));
-  const scanType   = pick(['-sS','-sT','-sV','-sC -sV','-A','-sU','-sV --script=vuln']);
-  const timing     = pick(['-T2','-T3','-T4']);
-  const portArg    = pick(['','-p-','-p 1-10000',`-p ${rand(1,1000)}-${rand(1001,65535)}`]);
+  // MOTD / last login
+  await burst([
+    c.dim(`Last login: ${pick(['Mon','Tue','Wed','Thu','Fri'])} ${pick(['Jan','Feb','Mar','Apr','May','Jun'])} ${rand(1,28)} ${lpad(rand(0,23),2,'0').replace(' ','0')}:${lpad(rand(0,59),2,'0').replace(' ','0')}:${lpad(rand(0,59),2,'0').replace(' ','0')} ${new Date().getFullYear()-rand(0,1)} from ${rand(10,192)}.${rand(0,254)}.${rand(0,254)}.${rand(1,254)}`),
+    c.dim(`Welcome to ${dist.name}`),
+    c.dim(` * Documentation:  https://help.ubuntu.com`),
+    c.dim(` * Management:     https://landscape.canonical.com`),
+    c.dim(` * Support:        https://ubuntu.com/advantage`),
+    c.dim(``),
+    c.amber(` ${rand(0,10)} updates can be applied immediately.`),
+    c.dim(` ${rand(0,5)} of these updates are standard security updates.`),
+    c.dim(` To see these additional updates run: apt list --upgradable`),
+  ], 55);
 
-  // pick random open ports
-  const shuffled   = [...services].sort(() => Math.random() - 0.5);
-  const openCount  = rand(2, 9);
-  const openPorts  = shuffled.slice(0, openCount);
-  const filtCount  = rand(0, 5);
-  const filtPorts  = shuffled.slice(openCount, openCount + filtCount).map(s => ({
-    port: s.port + rand(1, 10), name: 'unknown', banner: '', proto: s.proto
-  }));
-  const closedCount = rand(900, 65200);
-  const ttl        = pick([64, 64, 64, 128, 255]);
-  const osGuess    = pick(osGuesses);
+  blank();
+  await sleep(500);
 
-  // update status bar
-  document.getElementById('sb-host').textContent  = targetHost;
-  document.getElementById('sb-open').textContent  = openCount;
-  document.getElementById('sb-filt').textContent  = filtCount;
-  document.getElementById('sb-range').textContent = range;
-  hostsScanned++;
-  document.getElementById('sb-scanned').textContent = hostsScanned;
+  const prompt = c.green(`${user}@${host}`) + c.dim(':') + c.blue('~') + c.dim('$') + ' ';
 
-  const startTime = Date.now();
-  const scanDuration = (Math.random() * 40 + 5).toFixed(2);
+  // ── COMMAND 1: uname ───────────────────────────────────────────────────────
+  await typeLine(prompt, `uname -a`);
+  await sleep(120);
+  printNow(c.text(`Linux ${host} ${hw.cpu.match(/\d+\.\d+/)?.[0] ?? '6.5'}-generic #1 SMP PREEMPT_DYNAMIC x86_64 x86_64 x86_64 GNU/Linux`));
+  blank();
+  await sleep(600);
 
-  // ── PROMPT + COMMAND ───────────────────────────────────────────────────────
-  enqueueBlank();
-  enqueue(span('line prompt c-teal', `nmap ${scanType} ${timing} ${portArg} ${targetIP}`.replace(/  +/g,' ').trim()));
-  enqueueBlank();
+  // ── COMMAND 2: systemctl status (random service) ───────────────────────────
+  const svcName = pick(['sshd','nginx','postgresql','docker','cron','NetworkManager','rsyslog']);
+  await typeLine(prompt, `systemctl status ${svcName}`);
+  await sleep(150);
+  const running = rand(0,5) > 0;
+  await burst([
+    c.bright(`● ${svcName}.service - ${pick(['OpenSSH Server Daemon','Advanced HTTP Web Server','PostgreSQL RDBMS','Docker Application Container Engine','Regular background program processing daemon','Network Manager','System Logging Service'])}`),
+    c.dim(`     Loaded: loaded (/lib/systemd/system/${svcName}.service; enabled; preset: enabled)`),
+    running
+      ? `     Active: <span class="c-green">active (running)</span> since ${pick(['Mon','Tue','Wed'])} ${new Date().getFullYear()}-0${rand(1,9)}-${lpad(rand(1,28),2,'0').replace(' ','0')} ${lpad(rand(0,23),2,'0').replace(' ','0')}:${lpad(rand(0,59),2,'0').replace(' ','0')}:${lpad(rand(0,59),2,'0').replace(' ','0')} UTC; ${rand(1,60)}min ${rand(0,59)}s ago`
+      : `     Active: <span class="c-red">inactive (dead)</span>`,
+    c.dim(`    Process: ${rand(1000,9999)} ExecStart=${pick(['/usr/sbin/sshd','/usr/sbin/nginx','/usr/lib/postgresql/15/bin/postgres'])} -D (code=exited, status=0/SUCCESS)`),
+    c.dim(`   Main PID: ${rand(1000,9999)} (${svcName})`),
+    c.dim(`      Tasks: ${rand(1,40)} (limit: ${rand(1000,9000)})`),
+    c.dim(`     Memory: ${rand(1,500)}.${rand(0,9)}M`),
+    c.dim(`        CPU: ${rand(100,9999)}ms`),
+    c.dim(`     CGroup: /system.slice/${svcName}.service`),
+    c.dim(`             └─${rand(1000,9999)} /usr/sbin/${svcName} -D`),
+  ], 40);
+  blank();
+  await sleep(700);
 
-  // ── HEADER ────────────────────────────────────────────────────────────────
-  enqueue(span('line c-dim',    `Starting Nmap 7.94 ( https://nmap.org ) at ${ts()}`));
-  enqueue(span('line c-text',   `Nmap scan report for ${targetHost} (${targetIP})`));
-  enqueue(span('line c-text',   `Host is up (${rtt()} latency).`));
+  // ── COMMAND 3: df -h ───────────────────────────────────────────────────────
+  await typeLine(prompt, `df -h`);
+  await sleep(140);
+  await burst([
+    c.bright(`Filesystem      Size  Used Avail Use% Mounted on`),
+    c.text(`${hw.disk.dev}         ${hw.disk.size}  ${rand(10,80)}G  ${rand(5,200)}G  ${rand(20,85)}% /`),
+    c.dim(`tmpfs           ${rand(100,8000)}M  ${rand(1,100)}M  ${rand(100,7900)}M   ${rand(1,15)}% /dev/shm`),
+    c.dim(`tmpfs           5.0M  4.0K  5.0M   1% /run/lock`),
+    c.dim(`/dev/sda1       511M  6.1M  505M   2% /boot/efi`),
+    c.dim(`overlay         ${hw.disk.size}  ${rand(10,80)}G  ${rand(5,200)}G  ${rand(20,85)}% /var/lib/docker/overlay2/${Array.from({length:16},()=>hex4(rand(0,0xffff))).join('')}`),
+  ], 35);
+  blank();
+  await sleep(700);
 
+  // ── COMMAND 4 (conditional): ip addr ──────────────────────────────────────
   if (rand(0,1)) {
-    enqueue(span('line c-text', `rDNS record for ${targetIP}: ${targetHost}`));
+    await typeLine(prompt, `ip addr show ${hw.nic.dev}`);
+    await sleep(140);
+    const ipA = `${rand(10,192)}.${rand(0,254)}.${rand(0,254)}.${rand(1,254)}`;
+    const mac6 = Array.from({length:6},()=>hex2(rand(0,255))).join(':');
+    await burst([
+      c.dim(`2: ${hw.nic.dev}: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000`),
+      c.dim(`    link/ether ${mac6} brd ff:ff:ff:ff:ff:ff`),
+      c.text(`    inet ${ipA}/${rand(16,30)} brd ${ipA.split('.').slice(0,3).join('.')}.255 scope global dynamic ${hw.nic.dev}`),
+      c.dim(`       valid_lft ${rand(1000,86000)}sec preferred_lft ${rand(1000,86000)}sec`),
+    ], 40);
+    blank();
+    await sleep(700);
   }
 
-  enqueue(span('line c-text',   `Not shown: ${closedCount} ${pick(['closed tcp ports (reset)','closed tcp ports (conn-refused)','closed filtered tcp ports (no-response)'])}`));
+  // ── COMMAND 5: tail logs ───────────────────────────────────────────────────
+  await typeLine(prompt, `tail -n 8 /var/log/syslog`);
+  await sleep(140);
 
-  // ── PORT TABLE HEADER ─────────────────────────────────────────────────────
-  enqueueBlank();
-  enqueue(span('line c-header', `PORT          STATE     SERVICE          VERSION`));
+  const logDate = () => {
+    const m = pick(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']);
+    const d = lpad(rand(1,28),2,' ');
+    const hh = lpad(rand(0,23),2,'0').replace(' ','0');
+    const mm = lpad(rand(0,59),2,'0').replace(' ','0');
+    const ss = lpad(rand(0,59),2,'0').replace(' ','0');
+    return `${m} ${d} ${hh}:${mm}:${ss}`;
+  };
 
-  // ── OPEN PORTS ────────────────────────────────────────────────────────────
-  for (const svc of openPorts) {
-    const portStr = `${svc.port}/${svc.proto}`;
-    const row = `${pad(portStr, 14)}${pad('open', 10)}${pad(svc.name, 17)}${svc.banner}`;
-    enqueue(`<span class="line"><span class="open">${esc(row)}</span></span>`);
-  }
+  const logLines = Array.from({length:8}, () => {
+    const svc = pick(['kernel','sshd','cron','systemd','NetworkManager','rsyslogd','CRON','dockerd','sshd','auditd']);
+    const pid = rand(1000,9999);
+    const msg = pick([
+      `pam_unix(${pick(['sshd','sudo','login'])}:session): session opened for user ${user}`,
+      `Accepted publickey for ${user} from ${rand(10,192)}.${rand(0,254)}.${rand(1,254)}.${rand(1,254)} port ${rand(1024,65535)} ssh2`,
+      `(${user}) CMD (/usr/bin/find /var -name "*.log" -mtime +7 -delete)`,
+      `Started Session ${rand(1,99)} of User ${user}.`,
+      `INFO supervisord started with pid ${rand(1000,9999)}`,
+      `DHCPREQUEST on ${hw.nic.dev} to ${rand(10,192)}.${rand(0,254)}.0.1 port 67`,
+      `new mount namespace`,
+      `container runtime started`,
+      `kernel: [UFW BLOCK] IN=${hw.nic.dev} OUT= SRC=${rand(1,255)}.${rand(0,255)}.${rand(0,255)}.${rand(1,255)} DST=${rand(10,192)}.${rand(0,254)}.${rand(0,254)}.${rand(1,254)} PROTO=TCP`,
+    ]);
+    return c.dim(`${logDate()} ${host} ${svc}[${pid}]: ${msg}`);
+  });
 
-  // ── FILTERED PORTS ────────────────────────────────────────────────────────
-  for (const svc of filtPorts) {
-    const portStr = `${svc.port}/${svc.proto}`;
-    const row = `${pad(portStr, 14)}${pad('filtered', 10)}${pad(svc.name, 17)}`;
-    enqueue(`<span class="line"><span class="filtered">${esc(row)}</span></span>`);
-  }
-
-  // ── NSE SCRIPT OUTPUT ─────────────────────────────────────────────────────
-  const hasNSE = scanType.includes('-sC') || scanType.includes('-A') || scanType.includes('script');
-  if (hasNSE) {
-    enqueueBlank();
-    for (const svc of openPorts.slice(0, rand(1, openPorts.length))) {
-      let scriptLines = null;
-      if (svc.port === 22)            scriptLines = nseScripts.ssh;
-      else if ([80,443,8080,8443,3000,5601].includes(svc.port)) scriptLines = nseScripts.http;
-      else if ([139,445].includes(svc.port))  scriptLines = nseScripts.smb;
-      else if ([443,636,993,995].includes(svc.port)) scriptLines = nseScripts.ssl;
-      else if (svc.port === 161)      scriptLines = nseScripts.snmp;
-
-      if (scriptLines) {
-        const portStr = `${svc.port}/${svc.proto}`;
-        enqueue(span('line c-teal', `${pad(portStr, 14)}open      ${svc.name}`));
-        for (const fn of scriptLines) {
-          enqueue(span('line c-purple', fn()));
-        }
-      }
-    }
-  }
-
-  // ── OS DETECTION ──────────────────────────────────────────────────────────
-  if (scanType === '-A' || scanType.includes('-A')) {
-    enqueueBlank();
-    enqueue(span('line c-header', `Device type: ${pick(['general purpose','router','firewall','WAP','printer','storage-misc'])}`));
-    enqueue(span('line c-header', `Running: ${osGuess}`));
-    enqueue(span('line c-text',   `OS CPE: cpe:/o:linux:linux_kernel:${rand(4,6)}.${rand(0,19)}`));
-    enqueue(span('line c-text',   `OS details: ${osGuess}`));
-    enqueue(span('line c-text',   `Network Distance: ${rand(1,12)} hops`));
-  }
-
-  // ── TRACEROUTE (sometimes) ─────────────────────────────────────────────────
-  if (scanType === '-A' && rand(0,1)) {
-    enqueueBlank();
-    enqueue(span('line c-header', `TRACEROUTE (using port ${openPorts[0]?.port ?? 80}/tcp)`));
-    enqueue(span('line c-dim',    `HOP  RTT        ADDRESS`));
-    const hops = rand(2, 8);
-    for (let h = 1; h <= hops; h++) {
-      const hopRtt  = (Math.random() * 30 + h * 1.5).toFixed(2);
-      const hopIP   = ip();
-      enqueue(span('line c-text', `${lpad(h,3)}  ${pad(hopRtt + ' ms', 11)}${hopIP}`));
-    }
-    enqueue(span('line c-text',   `${lpad(hops+1, 3)}  ${pad(rtt(), 11)}${targetIP}`));
-  }
-
-  // ── MAC ADDRESS (local net) ────────────────────────────────────────────────
-  if (rand(0, 2) > 0) {
-    enqueueBlank();
-    const vendor = pick(['VMware','Dell','Cisco','HP Enterprise','Ubiquiti','TP-Link','Fortinet','Intel Corporate','Raspberry Pi']);
-    enqueue(span('line c-text',   `MAC Address: ${mac()} (${vendor})`));
-  }
-
-  // ── TIMING + SUMMARY ──────────────────────────────────────────────────────
-  enqueueBlank();
-  enqueue(span('line c-dim',    `Nmap done: 1 IP address (1 host up) scanned in ${scanDuration} seconds`));
-  enqueue(span('line c-dim',    `           Raw packets sent: ${rand(1000,9000)} | Rcvd: ${rand(100,3000)}`));
+  await burst(logLines, 40);
+  blank();
+  await sleep(1000);
 }
 
-// ─── CONTINUOUS LOOP ─────────────────────────────────────────────────────────
-function fillQueue() {
-  // keep queue from emptying — generate scans ahead of time
-  while (lineQueue.length < 120) {
-    generateScan();
+// ─── PHASE 8: SHUTDOWN / REBOOT ──────────────────────────────────────────────
+async function phaseShutdown(host, user) {
+  const prompt = c.green(`${user}@${host}`) + c.dim(':') + c.blue('~') + c.dim('$') + ' ';
+
+  await typeLine(prompt, `sudo reboot`, rand(1800,4000));
+  blank();
+  await sleep(600);
+
+  printNow(STATUS.star('Reached target Reboot.'));
+  await sleep(300);
+  printNow(STATUS.ok('Stopped target Default.'));
+  await sleep(180);
+  printNow(STATUS.ok('Stopped target Multi-User System.'));
+  await sleep(180);
+
+  const stopUnits = [
+    'Stopped OpenSSH Server Daemon.',
+    'Stopped System Logging Service.',
+    'Stopped Cron Daemon.',
+    'Stopped Network Manager.',
+    'Stopped containerd container runtime.',
+    'Stopped firewalld - dynamic firewall daemon.',
+    'Stopped Postfix Mail Transport Agent.',
+    'Unmounted /boot/efi.',
+    'Stopped Journal Service.',
+    'Reached target System Shutdown.',
+    'Reached target Late Shutdown Services.',
+    'Finished System Reboot.',
+  ];
+
+  for (const u of stopUnits) {
+    printNow(STATUS.ok(u));
+    await sleep(rand(80, 280));
   }
+
+  blank();
+  await sleep(300);
+  printNow(c.dim('systemd-shutdown[1]: Rebooting.'));
+  await sleep(500);
+  printNow(c.dim('reboot: Restarting system'));
+  await sleep(800);
+
+  // clear screen simulation
+  for (let i = 0; i < 6; i++) {
+    blank();
+    await sleep(50);
+  }
+  await sleep(600);
 }
 
-// initial fill
-fillQueue();
-startRendering();
+// ─── FULL BOOT CYCLE ─────────────────────────────────────────────────────────
+async function bootCycle() {
+  const kv   = kernelVer();
+  const dist = distro();
+  const hw   = hardware();
+  const host = hostname();
 
-// periodically top up the queue
-setInterval(fillQueue, 1800);
+  await phaseBios(hw);
+  await phaseGrub(dist, kv);
+  await phaseKernelStart(kv);
+  await phaseDmesg(hw, kv);
+  await phaseSystemd(host, dist);
+  const user = await phaseLogin(host, dist);
+  await phaseSession(host, user, dist, hw);
+  await phaseShutdown(host, user);
 
-// ─── STATUS BAR CLOCK ────────────────────────────────────────────────────────
-setInterval(() => {
-  const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-  const h = String(Math.floor(elapsed / 3600)).padStart(2,'0');
-  const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2,'0');
-  const s = String(elapsed % 60).padStart(2,'0');
-  document.getElementById('sb-time').textContent = `${h}:${m}:${s}`;
-}, 1000);
+  // loop indefinitely
+  bootCycle();
+}
+
+bootCycle();
 </script>
 </body>
 </html>

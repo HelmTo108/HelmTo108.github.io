@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scan — aricbolder.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:          #080d14;
+    --bg-panel:    #0c1420;
+    --text:        #8baabb;
+    --dim:         #3d5263;
+    --teal:        #4ec9b0;
+    --green:       #6adf78;
+    --amber:       #e8b84b;
+    --red:         #d94f5c;
+    --blue:        #569cd6;
+    --purple:      #c586c0;
+    --header:      #c8d8e8;
+    --cursor:      #4ec9b0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow: hidden;
+  }
+
+  /* scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.07) 2px,
+      rgba(0,0,0,0.07) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* subtle vignette */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 99;
+  }
+
+  #terminal {
+    position: fixed;
+    inset: 0;
+    padding: 20px 28px 20px 28px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  #output {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+  }
+
+  .line {
+    white-space: pre;
+    display: block;
+    animation: fadein 0.12s ease-out;
+    overflow: hidden;
+    text-overflow: clip;
+  }
+
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: translateY(0);   }
+  }
+
+  /* color classes */
+  .c-dim    { color: var(--dim);    }
+  .c-text   { color: var(--text);   }
+  .c-header { color: var(--header); font-weight: 500; }
+  .c-teal   { color: var(--teal);   }
+  .c-green  { color: var(--green);  }
+  .c-amber  { color: var(--amber);  }
+  .c-red    { color: var(--red);    }
+  .c-blue   { color: var(--blue);   }
+  .c-purple { color: var(--purple); }
+
+  /* status badges */
+  .open     { color: var(--green);  font-weight: 500; }
+  .closed   { color: var(--dim);    }
+  .filtered { color: var(--amber);  }
+
+  /* prompt line */
+  .prompt::before {
+    content: '$ ';
+    color: var(--teal);
+  }
+
+  /* status bar at top */
+  #statusbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 28px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid #1a2a38;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 24px;
+    z-index: 50;
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  #statusbar .sb-label { color: var(--teal); }
+  #statusbar .sb-val   { color: var(--text); margin-left: 4px; }
+  #statusbar .sb-sep   { color: #1e3040; }
+  #statusbar .sb-right { margin-left: auto; display: flex; gap: 24px; }
+
+  #cursor-blink {
+    display: inline-block;
+    width: 8px; height: 14px;
+    background: var(--cursor);
+    animation: blink 1.1s step-end infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+    opacity: 0.85;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 0.85; }
+    50%       { opacity: 0;    }
+  }
+
+  #terminal { padding-top: 38px; }
+</style>
+</head>
+<body>
+
+<div id="statusbar">
+  <span><span class="sb-label">HOST</span><span class="sb-val" id="sb-host">—</span></span>
+  <span class="sb-sep">│</span>
+  <span><span class="sb-label">OPEN</span><span class="sb-val" id="sb-open">0</span></span>
+  <span class="sb-sep">│</span>
+  <span><span class="sb-label">FILTERED</span><span class="sb-val" id="sb-filt">0</span></span>
+  <span class="sb-sep">│</span>
+  <span><span class="sb-label">RANGE</span><span class="sb-val" id="sb-range">—</span></span>
+  <div class="sb-right">
+    <span><span class="sb-label">SCANNED</span><span class="sb-val" id="sb-scanned">0</span></span>
+    <span class="sb-sep">│</span>
+    <span><span class="sb-val" id="sb-time">00:00:00</span></span>
+  </div>
+</div>
+
+<div id="terminal">
+  <div id="output"></div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const MAX_LINES        = 260;
+const LINE_INTERVAL_MS = 55;    // ms between lines (base speed)
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let hostsScanned = 0;
+let sessionStart  = Date.now();
+
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
+const rand  = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const pick  = arr => arr[rand(0, arr.length - 1)];
+const pad   = (s, n) => String(s).padEnd(n);
+const lpad  = (s, n) => String(s).padStart(n);
+const hex   = n => n.toString(16).padStart(2,'0').toUpperCase();
+const mac   = () => Array.from({length:6}, () => hex(rand(0,255))).join(':');
+
+function ip(a,b,c,d) {
+  return `${a ?? rand(1,254)}.${b ?? rand(0,254)}.${c ?? rand(0,254)}.${d ?? rand(1,254)}`;
+}
+
+function cidr(prefix) {
+  const p = prefix ?? pick([16,18,20,22,24]);
+  const a = rand(10,220), b = rand(0,254);
+  return `${a}.${b}.0.0/${p}`;
+}
+
+function rtt() {
+  const ms = (Math.random() * 48 + 0.4).toFixed(3);
+  return `${ms}ms`;
+}
+
+function ts() {
+  return new Date().toISOString().replace('T',' ').slice(0,19);
+}
+
+// ─── HOSTNAME GENERATORS ─────────────────────────────────────────────────────
+const hostPrefixes = ['srv','web','db','mail','vpn','fw','ap','sw','nas','mon','proxy','git','ci','ldap','dc','backup','mgmt','edge','gw','k8s','dev','prod','test','stage','infra','nfs','radius','siem','ids','waf'];
+const domains = ['internal','corp.local','lan','priv','net','infra.local','mgmt.local','dmz.local'];
+
+function hostname(ipAddr) {
+  const pfx = pick(hostPrefixes);
+  const n   = rand(1,99);
+  const dom = pick(domains);
+  return `${pfx}-${lpad(n,2).replace(' ','0')}.${dom}`;
+}
+
+// ─── SERVICES ────────────────────────────────────────────────────────────────
+const services = [
+  { port:21,   name:'ftp',        banner:'vsftpd 3.0.5',               proto:'tcp' },
+  { port:22,   name:'ssh',        banner:'OpenSSH 8.9p1 Ubuntu-3ubuntu0.6',  proto:'tcp' },
+  { port:23,   name:'telnet',     banner:'Linux telnetd',              proto:'tcp' },
+  { port:25,   name:'smtp',       banner:'Postfix smtpd',              proto:'tcp' },
+  { port:53,   name:'domain',     banner:'dnsmasq 2.89',               proto:'tcp' },
+  { port:80,   name:'http',       banner:'Apache httpd 2.4.57',        proto:'tcp' },
+  { port:110,  name:'pop3',       banner:'Dovecot pop3d',              proto:'tcp' },
+  { port:111,  name:'rpcbind',    banner:'2-4 (RPC #100000)',          proto:'tcp' },
+  { port:135,  name:'msrpc',      banner:'Microsoft Windows RPC',      proto:'tcp' },
+  { port:139,  name:'netbios-ssn',banner:'Samba smbd 4.x',            proto:'tcp' },
+  { port:143,  name:'imap',       banner:'Dovecot imapd',              proto:'tcp' },
+  { port:161,  name:'snmp',       banner:'SNMPv2c',                    proto:'udp' },
+  { port:389,  name:'ldap',       banner:'OpenLDAP 2.6.3',             proto:'tcp' },
+  { port:443,  name:'https',      banner:'nginx 1.24.0',               proto:'tcp' },
+  { port:445,  name:'microsoft-ds',banner:'Samba 4.17.12',            proto:'tcp' },
+  { port:465,  name:'smtps',      banner:'Postfix smtpd',              proto:'tcp' },
+  { port:514,  name:'syslog',     banner:'rsyslogd',                   proto:'udp' },
+  { port:636,  name:'ldapssl',    banner:'OpenLDAP 2.6.3',             proto:'tcp' },
+  { port:993,  name:'imaps',      banner:'Dovecot imapd',              proto:'tcp' },
+  { port:995,  name:'pop3s',      banner:'Dovecot pop3d',              proto:'tcp' },
+  { port:1194, name:'openvpn',    banner:'OpenVPN 2.6.4',              proto:'udp' },
+  { port:1433, name:'ms-sql-s',   banner:'Microsoft SQL Server 2019',  proto:'tcp' },
+  { port:1521, name:'oracle',     banner:'Oracle TNS Listener',        proto:'tcp' },
+  { port:2049, name:'nfs',        banner:'NFS 3-4',                    proto:'tcp' },
+  { port:2181, name:'zookeeper',  banner:'Apache ZooKeeper 3.8.2',     proto:'tcp' },
+  { port:3000, name:'http',       banner:'Grafana 10.2.0',             proto:'tcp' },
+  { port:3306, name:'mysql',      banner:'MySQL 8.0.35',               proto:'tcp' },
+  { port:3389, name:'ms-wbt-server',banner:'Microsoft Terminal Services',proto:'tcp' },
+  { port:4369, name:'epmd',       banner:'Erlang Port Mapper Daemon',  proto:'tcp' },
+  { port:5000, name:'http',       banner:'Docker Registry 2.8.3',      proto:'tcp' },
+  { port:5432, name:'postgresql', banner:'PostgreSQL 15.5',            proto:'tcp' },
+  { port:5601, name:'http',       banner:'Kibana 8.11.0',              proto:'tcp' },
+  { port:5671, name:'amqps',      banner:'RabbitMQ 3.12.9',           proto:'tcp' },
+  { port:5672, name:'amqp',       banner:'RabbitMQ 3.12.9',           proto:'tcp' },
+  { port:6379, name:'redis',      banner:'Redis 7.2.3',               proto:'tcp' },
+  { port:6443, name:'sun-sr-https',banner:'Kubernetes API Server',    proto:'tcp' },
+  { port:8080, name:'http-proxy', banner:'nginx 1.24.0',              proto:'tcp' },
+  { port:8443, name:'https-alt',  banner:'nginx 1.24.0',              proto:'tcp' },
+  { port:8883, name:'mqtt',       banner:'Eclipse Mosquitto 2.0.18',  proto:'tcp' },
+  { port:9092, name:'kafka',      banner:'Apache Kafka 3.6.0',        proto:'tcp' },
+  { port:9200, name:'http',       banner:'Elasticsearch 8.11.0',      proto:'tcp' },
+  { port:9300, name:'vrace',      banner:'Elasticsearch cluster',      proto:'tcp' },
+  { port:10250,name:'http',       banner:'Kubernetes kubelet',         proto:'tcp' },
+  { port:27017,name:'mongodb',    banner:'MongoDB 7.0.4',              proto:'tcp' },
+];
+
+const nseTitles = [
+  'auth','default','discovery','exploit','external','intrusive','malware','safe','version','vuln'
+];
+
+const nseScripts = {
+  ssh: [
+    line => `|   ssh-hostkey:`,
+    line => `|     2048 ${mac().replace(/:/g,'').slice(0,32)} (RSA)`,
+    line => `|     256  ${mac().replace(/:/g,'').slice(0,32)} (ECDSA)`,
+    line => `|_    256  ${mac().replace(/:/g,'').slice(0,32)} (ED25519)`,
+    line => `| ssh-auth-methods:`,
+    line => `|   Supported authentications: publickey,password`,
+    line => `|_  Preferred authentications: publickey`,
+  ],
+  http: [
+    line => `| http-title: ${pick(['Apache2 Ubuntu Default Page','nginx Welcome','401 Unauthorized','403 Forbidden','Internal Server Error','GitLab','Grafana','Kibana'])}`,
+    line => `| http-server-header: ${pick(['Apache/2.4.57 (Ubuntu)','nginx/1.24.0','Microsoft-IIS/10.0'])}`,
+    line => `|_http-generator: ${pick(['WordPress 6.4','Jekyll 4.3','Hugo 0.120','React App'])}`,
+  ],
+  smb: [
+    line => `| smb2-security-mode:`,
+    line => `|   ${rand(2,3)}.${rand(0,1)}:`,
+    line => `|_    Message signing ${pick(['enabled and required','enabled but not required'])}`,
+    line => `| smb2-time:`,
+    line => `|   date: ${ts()}`,
+    line => `|_  start_date: N/A`,
+  ],
+  ssl: [
+    line => `| ssl-cert: Subject: commonName=${pick(['*.internal','srv.corp.local','ldap.infra.local'])}`,
+    line => `| Issuer: commonName=${pick(['Internal CA','Let\'s Encrypt Authority X3','COMODO RSA'])}`,
+    line => `| Not valid before: ${rand(2020,2023)}-${lpad(rand(1,12),2).replace(' ','0')}-01T00:00:00`,
+    line => `|_Not valid after:  ${rand(2024,2026)}-${lpad(rand(1,12),2).replace(' ','0')}-01T00:00:00`,
+  ],
+  snmp: [
+    line => `| snmp-info:`,
+    line => `|   enterprise: ${pick(['net-snmp','Cisco','HP','Juniper','Fortinet'])}`,
+    line => `|   engineIDFormat: ${pick(['mac','text','oct'])}`,
+    line => `|   engineIDData: ${mac()}`,
+    line => `|   snmpEngineBoots: ${rand(1,9999)}`,
+    line => `|_  snmpEngineTime: ${rand(1,999)}d${rand(0,23)}h${rand(0,59)}m`,
+  ],
+};
+
+// ─── OS FINGERPRINTS ─────────────────────────────────────────────────────────
+const osGuesses = [
+  'Linux 4.15 - 5.19',
+  'Linux 5.4 - 5.15',
+  'Linux 5.15 - 6.1',
+  'Ubuntu 20.04 LTS',
+  'Ubuntu 22.04 LTS',
+  'Debian GNU/Linux 11 (bullseye)',
+  'CentOS Linux 7 (Core)',
+  'Rocky Linux 8.9',
+  'FreeBSD 13.2',
+  'Microsoft Windows Server 2019',
+  'Microsoft Windows Server 2022',
+  'Microsoft Windows 10 21H2',
+  'Cisco IOS 15.x',
+  'Fortinet FortiOS 7.x',
+  'VMware ESXi 7.0',
+  'pfSense 2.7.x (FreeBSD 14.0)',
+];
+
+// ─── LINE QUEUE SYSTEM ───────────────────────────────────────────────────────
+const output  = document.getElementById('output');
+let lineQueue = [];
+let rendering = false;
+
+function enqueue(html, delay = 0) {
+  lineQueue.push({ html, delay });
+}
+
+function enqueueBlank() { enqueue('<span class="line c-dim"> </span>'); }
+
+function renderNext() {
+  if (lineQueue.length === 0) { rendering = false; return; }
+  rendering = true;
+  const { html, delay } = lineQueue.shift();
+
+  setTimeout(() => {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    output.appendChild(el.firstChild || el);
+
+    // trim old lines
+    while (output.children.length > MAX_LINES) {
+      output.removeChild(output.firstChild);
+    }
+
+    setTimeout(renderNext, LINE_INTERVAL_MS);
+  }, delay);
+}
+
+function startRendering() {
+  if (!rendering) renderNext();
+}
+
+// ─── SPAN HELPERS ────────────────────────────────────────────────────────────
+const span = (cls, txt) => `<span class="line ${cls}">${esc(txt)}</span>`;
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── SCAN GENERATOR ──────────────────────────────────────────────────────────
+function generateScan() {
+  const targetIP   = ip();
+  const targetHost = hostname(targetIP);
+  const range      = cidr(rand(22,24));
+  const scanType   = pick(['-sS','-sT','-sV','-sC -sV','-A','-sU','-sV --script=vuln']);
+  const timing     = pick(['-T2','-T3','-T4']);
+  const portArg    = pick(['','-p-','-p 1-10000',`-p ${rand(1,1000)}-${rand(1001,65535)}`]);
+
+  // pick random open ports
+  const shuffled   = [...services].sort(() => Math.random() - 0.5);
+  const openCount  = rand(2, 9);
+  const openPorts  = shuffled.slice(0, openCount);
+  const filtCount  = rand(0, 5);
+  const filtPorts  = shuffled.slice(openCount, openCount + filtCount).map(s => ({
+    port: s.port + rand(1, 10), name: 'unknown', banner: '', proto: s.proto
+  }));
+  const closedCount = rand(900, 65200);
+  const ttl        = pick([64, 64, 64, 128, 255]);
+  const osGuess    = pick(osGuesses);
+
+  // update status bar
+  document.getElementById('sb-host').textContent  = targetHost;
+  document.getElementById('sb-open').textContent  = openCount;
+  document.getElementById('sb-filt').textContent  = filtCount;
+  document.getElementById('sb-range').textContent = range;
+  hostsScanned++;
+  document.getElementById('sb-scanned').textContent = hostsScanned;
+
+  const startTime = Date.now();
+  const scanDuration = (Math.random() * 40 + 5).toFixed(2);
+
+  // ── PROMPT + COMMAND ───────────────────────────────────────────────────────
+  enqueueBlank();
+  enqueue(span('line prompt c-teal', `nmap ${scanType} ${timing} ${portArg} ${targetIP}`.replace(/  +/g,' ').trim()));
+  enqueueBlank();
+
+  // ── HEADER ────────────────────────────────────────────────────────────────
+  enqueue(span('line c-dim',    `Starting Nmap 7.94 ( https://nmap.org ) at ${ts()}`));
+  enqueue(span('line c-text',   `Nmap scan report for ${targetHost} (${targetIP})`));
+  enqueue(span('line c-text',   `Host is up (${rtt()} latency).`));
+
+  if (rand(0,1)) {
+    enqueue(span('line c-text', `rDNS record for ${targetIP}: ${targetHost}`));
+  }
+
+  enqueue(span('line c-text',   `Not shown: ${closedCount} ${pick(['closed tcp ports (reset)','closed tcp ports (conn-refused)','closed filtered tcp ports (no-response)'])}`));
+
+  // ── PORT TABLE HEADER ─────────────────────────────────────────────────────
+  enqueueBlank();
+  enqueue(span('line c-header', `PORT          STATE     SERVICE          VERSION`));
+
+  // ── OPEN PORTS ────────────────────────────────────────────────────────────
+  for (const svc of openPorts) {
+    const portStr = `${svc.port}/${svc.proto}`;
+    const row = `${pad(portStr, 14)}${pad('open', 10)}${pad(svc.name, 17)}${svc.banner}`;
+    enqueue(`<span class="line"><span class="open">${esc(row)}</span></span>`);
+  }
+
+  // ── FILTERED PORTS ────────────────────────────────────────────────────────
+  for (const svc of filtPorts) {
+    const portStr = `${svc.port}/${svc.proto}`;
+    const row = `${pad(portStr, 14)}${pad('filtered', 10)}${pad(svc.name, 17)}`;
+    enqueue(`<span class="line"><span class="filtered">${esc(row)}</span></span>`);
+  }
+
+  // ── NSE SCRIPT OUTPUT ─────────────────────────────────────────────────────
+  const hasNSE = scanType.includes('-sC') || scanType.includes('-A') || scanType.includes('script');
+  if (hasNSE) {
+    enqueueBlank();
+    for (const svc of openPorts.slice(0, rand(1, openPorts.length))) {
+      let scriptLines = null;
+      if (svc.port === 22)            scriptLines = nseScripts.ssh;
+      else if ([80,443,8080,8443,3000,5601].includes(svc.port)) scriptLines = nseScripts.http;
+      else if ([139,445].includes(svc.port))  scriptLines = nseScripts.smb;
+      else if ([443,636,993,995].includes(svc.port)) scriptLines = nseScripts.ssl;
+      else if (svc.port === 161)      scriptLines = nseScripts.snmp;
+
+      if (scriptLines) {
+        const portStr = `${svc.port}/${svc.proto}`;
+        enqueue(span('line c-teal', `${pad(portStr, 14)}open      ${svc.name}`));
+        for (const fn of scriptLines) {
+          enqueue(span('line c-purple', fn()));
+        }
+      }
+    }
+  }
+
+  // ── OS DETECTION ──────────────────────────────────────────────────────────
+  if (scanType === '-A' || scanType.includes('-A')) {
+    enqueueBlank();
+    enqueue(span('line c-header', `Device type: ${pick(['general purpose','router','firewall','WAP','printer','storage-misc'])}`));
+    enqueue(span('line c-header', `Running: ${osGuess}`));
+    enqueue(span('line c-text',   `OS CPE: cpe:/o:linux:linux_kernel:${rand(4,6)}.${rand(0,19)}`));
+    enqueue(span('line c-text',   `OS details: ${osGuess}`));
+    enqueue(span('line c-text',   `Network Distance: ${rand(1,12)} hops`));
+  }
+
+  // ── TRACEROUTE (sometimes) ─────────────────────────────────────────────────
+  if (scanType === '-A' && rand(0,1)) {
+    enqueueBlank();
+    enqueue(span('line c-header', `TRACEROUTE (using port ${openPorts[0]?.port ?? 80}/tcp)`));
+    enqueue(span('line c-dim',    `HOP  RTT        ADDRESS`));
+    const hops = rand(2, 8);
+    for (let h = 1; h <= hops; h++) {
+      const hopRtt  = (Math.random() * 30 + h * 1.5).toFixed(2);
+      const hopIP   = ip();
+      enqueue(span('line c-text', `${lpad(h,3)}  ${pad(hopRtt + ' ms', 11)}${hopIP}`));
+    }
+    enqueue(span('line c-text',   `${lpad(hops+1, 3)}  ${pad(rtt(), 11)}${targetIP}`));
+  }
+
+  // ── MAC ADDRESS (local net) ────────────────────────────────────────────────
+  if (rand(0, 2) > 0) {
+    enqueueBlank();
+    const vendor = pick(['VMware','Dell','Cisco','HP Enterprise','Ubiquiti','TP-Link','Fortinet','Intel Corporate','Raspberry Pi']);
+    enqueue(span('line c-text',   `MAC Address: ${mac()} (${vendor})`));
+  }
+
+  // ── TIMING + SUMMARY ──────────────────────────────────────────────────────
+  enqueueBlank();
+  enqueue(span('line c-dim',    `Nmap done: 1 IP address (1 host up) scanned in ${scanDuration} seconds`));
+  enqueue(span('line c-dim',    `           Raw packets sent: ${rand(1000,9000)} | Rcvd: ${rand(100,3000)}`));
+}
+
+// ─── CONTINUOUS LOOP ─────────────────────────────────────────────────────────
+function fillQueue() {
+  // keep queue from emptying — generate scans ahead of time
+  while (lineQueue.length < 120) {
+    generateScan();
+  }
+}
+
+// initial fill
+fillQueue();
+startRendering();
+
+// periodically top up the queue
+setInterval(fillQueue, 1800);
+
+// ─── STATUS BAR CLOCK ────────────────────────────────────────────────────────
+setInterval(() => {
+  const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+  const h = String(Math.floor(elapsed / 3600)).padStart(2,'0');
+  const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2,'0');
+  const s = String(elapsed % 60).padStart(2,'0');
+  document.getElementById('sb-time').textContent = `${h}:${m}:${s}`;
+}, 1000);
+</script>
+</body>
+</html>
